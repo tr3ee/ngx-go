@@ -76,7 +76,24 @@ func decoderOf(ngx *NGX, typ reflect2.Type) (Decoder, error) {
 		}
 		return &StructDecoder{ops, ngx.jescape}, nil
 	case reflect.Map:
-		return nil, ErrNotImplemented
+		mapType := typ.(*reflect2.UnsafeMapType)
+		keyDecoder, err := decoderOf(ngx, mapType.Key())
+		if err != nil {
+			return nil, err
+		}
+		elemDecoder, err := decoderOf(ngx, mapType.Elem())
+		if err != nil {
+			return nil, err
+		}
+		return &MapDecoder{
+			ops:         ngx.ops,
+			jescape:     ngx.jescape,
+			mapType:     mapType,
+			keyType:     mapType.Key(),
+			elemType:    mapType.Elem(),
+			keyDecoder:  keyDecoder,
+			elemDecoder: elemDecoder,
+		}, nil
 	case reflect.Ptr:
 		elem := typ.(*reflect2.UnsafePtrType).Elem()
 		decoder, err := decoderOf(ngx, elem)
@@ -274,10 +291,86 @@ func (d *StringDecoder) Decode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 type MapDecoder struct {
 	ops     []operator
 	jescape bool
+
+	mapType     *reflect2.UnsafeMapType
+	keyType     reflect2.Type
+	elemType    reflect2.Type
+	keyDecoder  Decoder
+	elemDecoder Decoder
 }
 
 func (d *MapDecoder) Decode(ptr unsafe.Pointer, text *bytes.Buffer) error {
-	return ErrNotImplemented
+	p := 0
+	data := text.Bytes()
+	length := len(d.ops)
+	for i := 0; i < length; i++ {
+		op := d.ops[i]
+		switch op.Type {
+		case ngxString, ngxEscString:
+			p += len(op.Extra)
+		case ngxBind, ngxVariable:
+			var raw []byte
+			if i+1 >= length {
+				raw = data[p:]
+			} else {
+				next := d.ops[i+1]
+				switch next.Type {
+				case ngxString:
+					off := bytes.Index(data[p:], next.ExtraBytes)
+					if off < 0 {
+						return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+					}
+					raw = data[p : p+off]
+					i++
+					p += off + len(next.ExtraBytes)
+				case ngxEscString:
+					oldp := p
+				ngx_bind_retry:
+					off := bytes.Index(data[p:], next.ExtraBytes)
+					if off < 0 {
+						return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+					} else if off > 0 && data[p+off-1] == '\\' {
+						p += off + len(next.ExtraBytes)
+						goto ngx_bind_retry
+					}
+					raw = data[oldp : p+off]
+					i++
+					p += off + len(next.ExtraBytes)
+				default:
+					return fmt.Errorf("ngx-go does not support '$%s$%s' style format", op.Extra, next.Extra)
+				}
+			}
+
+			key := d.keyType.UnsafeNew()
+			if err := d.keyDecoder.Decode(key, bytes.NewBuffer([]byte(op.Extra))); err != nil {
+				return err
+			}
+
+			text := bytes.NewBuffer(raw)
+			if d.jescape {
+				raw, err := junescape(text)
+				if err != nil {
+					return err
+				}
+				text = raw
+			} else {
+				raw, err := unescape(text)
+				if err != nil {
+					return err
+				}
+				text = raw
+			}
+			elem := d.elemType.UnsafeNew()
+			d.elemDecoder.Decode(elem, text)
+
+			d.mapType.UnsafeSetIndex(ptr, key, elem)
+
+		default:
+			return fmt.Errorf("Unsupported operator type(%d)", op.Type)
+		}
+	}
+
+	return nil
 }
 
 type StructDecoder struct {
@@ -292,38 +385,66 @@ func (d *StructDecoder) Decode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	for i := 0; i < length; i++ {
 		op := d.ops[i]
 		switch op.Type {
-		case ngxString:
+		case ngxString, ngxEscString:
 			p += len(op.Extra)
 		case ngxVariable:
 			if i+1 >= length {
 				return nil
 			}
 			next := d.ops[i+1]
-			if next.Type != ngxString {
+			switch next.Type {
+			case ngxString:
+				off := bytes.Index(data[p:], next.ExtraBytes)
+				if off < 0 {
+					return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+				}
+				i++
+				p += off + len(next.ExtraBytes)
+			case ngxEscString:
+			ngx_var_retry:
+				off := bytes.Index(data[p:], next.ExtraBytes)
+				if off < 0 {
+					return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+				} else if off > 0 && data[p+off-1] == '\\' {
+					p += off + len(next.ExtraBytes)
+					goto ngx_var_retry
+				}
+				i++
+				p += off + len(next.ExtraBytes)
+			default:
 				return fmt.Errorf("ngx-go does not support '$%s$%s' style format", op.Extra, next.Extra)
 			}
-			off := bytes.Index(data[p:], next.ExtraBytes)
-			if off < 0 {
-				return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
-			}
-			i++
-			p += off + len(next.ExtraBytes)
 		case ngxBind:
 			var raw []byte
 			if i+1 >= length {
 				raw = data[p:]
 			} else {
 				next := d.ops[i+1]
-				if next.Type != ngxString {
+				switch next.Type {
+				case ngxString:
+					off := bytes.Index(data[p:], next.ExtraBytes)
+					if off < 0 {
+						return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+					}
+					raw = data[p : p+off]
+					i++
+					p += off + len(next.ExtraBytes)
+				case ngxEscString:
+					oldp := p
+				ngx_bind_retry:
+					off := bytes.Index(data[p:], next.ExtraBytes)
+					if off < 0 {
+						return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+					} else if off > 0 && data[p+off-1] == '\\' {
+						p += off + len(next.ExtraBytes)
+						goto ngx_bind_retry
+					}
+					raw = data[oldp : p+off]
+					i++
+					p += off + len(next.ExtraBytes)
+				default:
 					return fmt.Errorf("ngx-go does not support '$%s$%s' style format", op.Extra, next.Extra)
 				}
-				off := bytes.Index(data[p:], next.ExtraBytes)
-				if off < 0 {
-					return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
-				}
-				raw = data[p : p+off]
-				i++
-				p += off + len(next.ExtraBytes)
 			}
 
 			text := bytes.NewBuffer(raw)

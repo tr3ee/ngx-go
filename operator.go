@@ -3,6 +3,7 @@ package ngx
 const (
 	ngxUnknown = iota
 	ngxString
+	ngxEscString
 	ngxVariable
 	ngxBind
 )

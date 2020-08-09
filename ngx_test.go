@@ -21,6 +21,7 @@ var testcases = []struct {
 	Expected   logmsg
 }{
 	{"Str = $str, Int = $int, Uint = $uint, Byte = $byte, P2Int = $p2int, and Empty = $empty", nil, `Str = tr\\3e, Int = 57005, Uint = 1000, Byte = T, P2Int = 57005, and Empty = not empty at all`, logmsg{"tr\\3e", dead, 1000, 'T', &dead, "", nil}},
+	{"Str = \"$str\", Int = $int, Uint = $uint, Byte = $byte, P2Int = $p2int, and Empty = $empty", nil, `Str = "tr\", Int = 3e", Int = 57005, Uint = 1000, Byte = T, P2Int = 57005, and Empty = not empty at all`, logmsg{"tr\", Int = 3e", dead, 1000, 'T', &dead, "", nil}},
 }
 
 func TestCompile(t *testing.T) {

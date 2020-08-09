@@ -6,8 +6,6 @@ import (
 )
 
 type API interface {
-	// Encoder
-	// Decoder
 	Marshal(v interface{}) ([]byte, error)
 	MarshalToString(v interface{}) (string, error)
 	Unmarshal(data []byte, v interface{}) error

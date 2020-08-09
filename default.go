@@ -8,11 +8,15 @@ var (
 type Access struct {
 	RemoteAddr    string `ngx:"remote_addr"`
 	RemoteUser    string `ngx:"remote_user"`
+	TimeLocal     string `ngx:"time_local"`
 	Request       string `ngx:"request"`
 	Status        int    `ngx:"status"`
+	BytesSent     int    `ngx:"bytes_sent"`
 	BodyBytesSent int    `ngx:"body_bytes_sent"`
 	HTTPReferer   string `ngx:"http_referer"`
 	HTTPUserAgent string `ngx:"http_user_agent"`
+	HTTPCookie    string `ngx:"http_cookie"`
+	RequestBody   string `ngx:"request_body"`
 }
 
 func Marshal(v interface{}) ([]byte, error) {

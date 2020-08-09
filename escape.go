@@ -72,6 +72,15 @@ func unescape(buf *bytes.Buffer) (*bytes.Buffer, error) {
 	return esc, nil
 }
 
+func isEscapeChar(ch byte) bool {
+	switch ch {
+	case '\\', '"', 'x':
+		return true
+	default:
+		return false
+	}
+}
+
 func jescape(buf *bytes.Buffer) *bytes.Buffer {
 	return buf
 }
@@ -132,4 +141,13 @@ func junescape(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		i = backslash
 	}
 	return esc, nil
+}
+
+func isJEscapeChar(ch byte) bool {
+	switch ch {
+	case '\\', '"', 'n', 'r', 't', 'b', 'f', 'u':
+		return true
+	default:
+		return false
+	}
 }

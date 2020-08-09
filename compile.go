@@ -78,17 +78,26 @@ func Compile(logfmt string) (*NGX, error) {
 			}
 			q = p
 		} else {
+			typ := ngxString
 			next := strings.IndexByte(logfmt[q:], '$')
+			if ngx.jescape {
+				if isJEscapeChar(logfmt[q]) {
+					typ = ngxEscString
+				}
+			} else if isEscapeChar(logfmt[q]) {
+				typ = ngxEscString
+			}
+
 			if next < 0 {
 				ngx.ops = append(ngx.ops, operator{
-					Type:       ngxString,
+					Type:       typ,
 					Extra:      logfmt[q:],
 					ExtraBytes: []byte(logfmt[q:]),
 				})
 				break
 			} else {
 				ngx.ops = append(ngx.ops, operator{
-					Type:       ngxString,
+					Type:       typ,
 					Extra:      logfmt[q : q+next],
 					ExtraBytes: []byte(logfmt[q : q+next]),
 				})
