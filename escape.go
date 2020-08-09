@@ -24,11 +24,11 @@ func init() {
 	}
 }
 
-func escape(buf *bytes.Buffer) *bytes.Buffer {
+func escape(buf Buffer) Buffer {
 	return buf
 }
 
-func unescape(buf *bytes.Buffer) (*bytes.Buffer, error) {
+func unescape(buf Buffer) (Buffer, error) {
 	if buf.Len() <= 0 {
 		return buf, nil
 	}
@@ -69,7 +69,7 @@ func unescape(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		}
 		i = backslash
 	}
-	return esc, nil
+	return NewBytesBuffer(esc.Bytes()), nil
 }
 
 func isEscapeChar(ch byte) bool {
@@ -81,11 +81,11 @@ func isEscapeChar(ch byte) bool {
 	}
 }
 
-func jescape(buf *bytes.Buffer) *bytes.Buffer {
+func jescape(buf Buffer) Buffer {
 	return buf
 }
 
-func junescape(buf *bytes.Buffer) (*bytes.Buffer, error) {
+func junescape(buf Buffer) (Buffer, error) {
 	if buf.Len() <= 0 {
 		return buf, nil
 	}
@@ -140,7 +140,7 @@ func junescape(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		}
 		i = backslash
 	}
-	return esc, nil
+	return NewBytesBuffer(esc.Bytes()), nil
 }
 
 func isJEscapeChar(ch byte) bool {

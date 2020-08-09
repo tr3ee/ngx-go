@@ -6,15 +6,28 @@ import (
 	"strings"
 )
 
+const (
+	ngxUnknown = iota
+	ngxString
+	ngxEscString
+	ngxVariable
+	ngxBind
+)
+
 var (
 	ErrInvalidLogFormat         = errors.New("Invalid log format")
 	ErrUnknownLogFormatEscaping = errors.New("Unknown log format escaping")
 )
 
+type baseOp struct {
+	Type  int
+	Extra []byte
+}
+
 func Compile(logfmt string) (*NGX, error) {
 	q, p := 0, 0
 	ngx := &NGX{
-		ops:       make([]operator, 0, 8),
+		ops:       make([]baseOp, 0, 8),
 		supported: make(map[string]int),
 	}
 
@@ -64,16 +77,15 @@ func Compile(logfmt string) (*NGX, error) {
 			if p-q <= 0 {
 				return nil, ErrInvalidLogFormat
 			}
-			index := len(ngx.ops)
-			if index > 0 && ngx.ops[index-1].Type == ngxVariable {
+			pos := len(ngx.ops)
+			if pos > 0 && ngx.ops[pos-1].Type == ngxVariable {
 				// skip
 			} else {
 				varname := logfmt[q:p]
-				ngx.supported[varname] = index
-				ngx.ops = append(ngx.ops, operator{
-					Type:       ngxVariable,
-					Extra:      varname,
-					ExtraBytes: []byte(varname),
+				ngx.supported[varname] = pos
+				ngx.ops = append(ngx.ops, baseOp{
+					Type:  ngxVariable,
+					Extra: []byte(varname),
 				})
 			}
 			q = p
@@ -89,17 +101,15 @@ func Compile(logfmt string) (*NGX, error) {
 			}
 
 			if next < 0 {
-				ngx.ops = append(ngx.ops, operator{
-					Type:       typ,
-					Extra:      logfmt[q:],
-					ExtraBytes: []byte(logfmt[q:]),
+				ngx.ops = append(ngx.ops, baseOp{
+					Type:  typ,
+					Extra: []byte(logfmt[q:]),
 				})
 				break
 			} else {
-				ngx.ops = append(ngx.ops, operator{
-					Type:       typ,
-					Extra:      logfmt[q : q+next],
-					ExtraBytes: []byte(logfmt[q : q+next]),
+				ngx.ops = append(ngx.ops, baseOp{
+					Type:  typ,
+					Extra: []byte(logfmt[q : q+next]),
 				})
 				q += next
 				p = q
