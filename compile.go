@@ -42,6 +42,21 @@ func Compile(logfmt string) (*NGX, error) {
 		} else {
 			return nil, ErrUnknownLogFormatEscaping
 		}
+	skip_semi:
+		for p < len(logfmt) {
+			switch logfmt[p] {
+			case ' ', '\r', '\n', '\t', '\v', '\f':
+				// skip
+			case ';':
+				break skip_semi
+			default:
+				if ngx.jescape {
+					return nil, fmt.Errorf("expecting ';' after escape=json")
+				}
+				return nil, fmt.Errorf("expecting ';' after escape=default")
+			}
+			p++
+		}
 	}
 
 	for q = p; p < len(logfmt); {
