@@ -9,6 +9,7 @@ var positiveFormats = []string{
 	`\$request "$request_body" "$header_cookie"`,
 	`\$request\"$request_body\"\"$header_cookie\"`,
 	`escape=json ; $request "$request_body""$header_cookie"`,
+	`escape=none ; $request "$request_body""$header_cookie"`,
 	`escape=default           		; $request "$request_body" "$header_cookie"`,
 }
 
