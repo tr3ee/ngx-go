@@ -1,13 +1,47 @@
 package ngx
 
 import (
-	"bytes"
 	"errors"
 	"reflect"
 	"sync"
 
 	"github.com/modern-go/reflect2"
 )
+
+var (
+	CombinedFmt = "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\""
+	ngx, _      = Compile(CombinedFmt)
+)
+
+type Access struct {
+	RemoteAddr    string `ngx:"remote_addr"`
+	RemoteUser    string `ngx:"remote_user"`
+	TimeLocal     string `ngx:"time_local"`
+	Request       string `ngx:"request"`
+	Status        int    `ngx:"status"`
+	BytesSent     int    `ngx:"bytes_sent"`
+	BodyBytesSent int    `ngx:"body_bytes_sent"`
+	HTTPReferer   string `ngx:"http_referer"`
+	HTTPUserAgent string `ngx:"http_user_agent"`
+	HTTPCookie    string `ngx:"http_cookie"`
+	RequestBody   string `ngx:"request_body"`
+}
+
+func Marshal(v interface{}) ([]byte, error) {
+	return ngx.Marshal(v)
+}
+
+func MarshalToString(v interface{}) (string, error) {
+	return ngx.MarshalToString(v)
+}
+
+func Unmarshal(data []byte, v interface{}) error {
+	return ngx.Unmarshal(data, v)
+}
+
+func UnmarshalFromString(str string, v interface{}) error {
+	return ngx.UnmarshalFromString(str, v)
+}
 
 var (
 	ErrNilPointer = errors.New("cannot unmarshal into nil pointer")
@@ -18,8 +52,8 @@ var (
 
 type NGX struct {
 	cache     sync.Map
-	ops       []operator
-	jescape   bool
+	ops       []baseOp
+	esc       Esc
 	supported map[string]int
 }
 
@@ -44,7 +78,7 @@ func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {
 	rtyp := reflect2.RTypeOf(itf)
 
 	if decoder, _ := ngx.cache.Load(rtyp); decoder != nil {
-		return decoder.(Decoder).Decode(ptr, bytes.NewBufferString(data))
+		return decoder.(Decoder).Decode(ptr, NewStringBuffer(data))
 	}
 
 	// create decoder
@@ -61,7 +95,7 @@ func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {
 
 	ngx.cache.Store(rtyp, d)
 
-	return d.Decode(ptr, bytes.NewBufferString(data))
+	return d.Decode(ptr, NewStringBuffer(data))
 }
 
 func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
@@ -77,7 +111,7 @@ func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
 	rtyp := reflect2.RTypeOf(itf)
 
 	if decoder, _ := ngx.cache.Load(rtyp); decoder != nil {
-		return decoder.(Decoder).Decode(ptr, bytes.NewBuffer(data))
+		return decoder.(Decoder).Decode(ptr, NewBytesBuffer(data))
 	}
 
 	// create decoder
@@ -94,5 +128,5 @@ func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
 
 	ngx.cache.Store(rtyp, d)
 
-	return d.Decode(ptr, bytes.NewBuffer(data))
+	return d.Decode(ptr, NewBytesBuffer(data))
 }
