@@ -23,7 +23,7 @@ func (e Esc) String() string {
 	case EscJson:
 		return "json"
 	case EscNone:
-		return "raw"
+		return "none"
 	default:
 		return "unknown"
 	}
