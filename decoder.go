@@ -1,7 +1,6 @@
 package ngx
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -10,10 +9,6 @@ import (
 	"unsafe"
 
 	"github.com/modern-go/reflect2"
-)
-
-var (
-	ErrNotImplemented = errors.New("This feature is not implemented")
 )
 
 func decoderOf(ngx *NGX, typ reflect2.Type) (Decoder, error) {

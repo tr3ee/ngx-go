@@ -9,6 +9,12 @@ import (
 )
 
 var (
+	ErrNilPointer     = errors.New("cannot unmarshal into nil pointer")
+	ErrNonPointer     = errors.New("cannot unmarshal into a non-pointer type data structure")
+	ErrNotImplemented = errors.New("This feature is not implemented")
+)
+
+var (
 	CombinedFmt = "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\""
 	ngx, _      = Compile(CombinedFmt)
 )
@@ -42,11 +48,6 @@ func Unmarshal(data []byte, v interface{}) error {
 func UnmarshalFromString(str string, v interface{}) error {
 	return ngx.UnmarshalFromString(str, v)
 }
-
-var (
-	ErrNilPointer = errors.New("cannot unmarshal into nil pointer")
-	ErrNonPointer = errors.New("cannot unmarshal into a non-pointer type data structure")
-)
 
 // see http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format for more details.
 
