@@ -53,7 +53,7 @@ var (
 type NGX struct {
 	cache     sync.Map
 	ops       []baseOp
-	jescape   bool
+	esc       Esc
 	supported map[string]int
 }
 

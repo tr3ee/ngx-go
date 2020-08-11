@@ -8,6 +8,59 @@ import (
 
 const maxLatin1 = 255
 
+const (
+	EscDefault = Esc(iota)
+	EscJson
+	EscText
+)
+
+type Esc int
+
+func (e Esc) String() string {
+	switch e {
+	case EscDefault:
+		return "default"
+	case EscJson:
+		return "json"
+	case EscText:
+		return "raw"
+	default:
+		return "unknown"
+	}
+}
+
+func (e Esc) isEscapeChar(ch byte) bool {
+	switch e {
+	case EscDefault:
+		switch ch {
+		case '\\', '"', 'x':
+			return true
+		default:
+			return false
+		}
+	case EscJson:
+		switch ch {
+		case '\\', '"', 'n', 'r', 't', 'b', 'f', 'u':
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func (e Esc) Unescape(buf Buffer) (Buffer, error) {
+	switch e {
+	case EscDefault:
+		return unescape(buf)
+	case EscJson:
+		return junescape(buf)
+	default:
+		return buf, nil
+	}
+}
+
 var heximal = [maxLatin1 + 1]int8{}
 
 func init() {
@@ -72,15 +125,6 @@ func unescape(buf Buffer) (Buffer, error) {
 	return NewBytesBuffer(esc.Bytes()), nil
 }
 
-func isEscapeChar(ch byte) bool {
-	switch ch {
-	case '\\', '"', 'x':
-		return true
-	default:
-		return false
-	}
-}
-
 func jescape(buf Buffer) Buffer {
 	return buf
 }
@@ -141,13 +185,4 @@ func junescape(buf Buffer) (Buffer, error) {
 		i = backslash
 	}
 	return NewBytesBuffer(esc.Bytes()), nil
-}
-
-func isJEscapeChar(ch byte) bool {
-	switch ch {
-	case '\\', '"', 'n', 'r', 't', 'b', 'f', 'u':
-		return true
-	default:
-		return false
-	}
 }

@@ -21,7 +21,7 @@ func decoderOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Decoder, error) {
 
 	return &MapDecoder{
 		ops:         ngx.ops,
-		jescape:     ngx.jescape,
+		esc:         ngx.esc,
 		mapType:     typ,
 		keyType:     typ.Key(),
 		elemType:    typ.Elem(),
@@ -31,8 +31,8 @@ func decoderOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Decoder, error) {
 }
 
 type MapDecoder struct {
-	ops     []baseOp
-	jescape bool
+	ops []baseOp
+	esc Esc
 
 	mapType     *reflect2.UnsafeMapType
 	keyType     reflect2.Type
@@ -89,17 +89,9 @@ func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 			}
 
 			text := Buffer(NewBytesBuffer(raw))
-			if d.jescape {
-				raw, err := junescape(text)
-				if err != nil {
-					return err
-				}
-				text = raw
+			if raw, err := d.esc.Unescape(text); err != nil {
+				return err
 			} else {
-				raw, err := unescape(text)
-				if err != nil {
-					return err
-				}
 				text = raw
 			}
 			elem := d.elemType.UnsafeNew()

@@ -41,12 +41,12 @@ func decoderOfStruct(ngx *NGX, typ *reflect2.UnsafeStructType) (Decoder, error) 
 			ops[ind].Decoder = dec
 		}
 	}
-	return &StructDecoder{ops, ngx.jescape}, nil
+	return &StructDecoder{ops, ngx.esc}, nil
 }
 
 type StructDecoder struct {
-	ops     []structOp
-	jescape bool
+	ops []structOp
+	esc Esc
 }
 
 func (d *StructDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
@@ -119,17 +119,9 @@ func (d *StructDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 			}
 
 			text := Buffer(NewBytesBuffer(raw))
-			if d.jescape {
-				raw, err := junescape(text)
-				if err != nil {
-					return err
-				}
-				text = raw
+			if raw, err := d.esc.Unescape(text); err != nil {
+				return err
 			} else {
-				raw, err := unescape(text)
-				if err != nil {
-					return err
-				}
 				text = raw
 			}
 

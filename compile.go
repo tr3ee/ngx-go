@@ -35,10 +35,13 @@ func Compile(logfmt string) (*NGX, error) {
 		p += 7
 		if strings.HasPrefix(logfmt[p:], "json") {
 			p += 4
-			ngx.jescape = true
+			ngx.esc = EscJson
 		} else if strings.HasPrefix(logfmt[p:], "default") {
 			p += 7
-			ngx.jescape = false
+			ngx.esc = EscDefault
+		} else if strings.HasPrefix(logfmt[p:], "raw") {
+			p += 3
+			ngx.esc = EscText
 		} else {
 			return nil, ErrUnknownLogFormatEscaping
 		}
@@ -50,10 +53,7 @@ func Compile(logfmt string) (*NGX, error) {
 			case ';':
 				break skip_semi
 			default:
-				if ngx.jescape {
-					return nil, fmt.Errorf("expecting ';' after escape=json")
-				}
-				return nil, fmt.Errorf("expecting ';' after escape=default")
+				return nil, fmt.Errorf("expecting ';' after escape=%s", ngx.esc)
 			}
 			p++
 		}
@@ -107,11 +107,7 @@ func Compile(logfmt string) (*NGX, error) {
 		} else {
 			typ := ngxString
 			next := strings.IndexByte(logfmt[q:], '$')
-			if ngx.jescape {
-				if isJEscapeChar(logfmt[q]) {
-					typ = ngxEscString
-				}
-			} else if isEscapeChar(logfmt[q]) {
+			if ngx.esc.isEscapeChar(logfmt[q]) {
 				typ = ngxEscString
 			}
 
