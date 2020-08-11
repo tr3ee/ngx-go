@@ -28,18 +28,27 @@ func TestUnmarshal(t *testing.T) {
 			t.Fatalf("failed to unmarshal data %q: %v", tc.Data, err)
 		}
 
-		// if len(tc.Expected) != len(got) {
-		// 	t.Fatalf("Corrupted data in unmarshal: expecting len(%d), got len(%d)", len(tc.Expected), len(got))
-		// }
-
-		// for k, v := range tc.Expected {
-		// 	if got[k] != v {
-		// 		t.Fatalf("Corrupted data in unmarshal: expecting %s:%s, got %s:%s", k, v, k, got[k])
-		// 	}
-		// }
-
 		if !reflect.DeepEqual(got, tc.Expected) {
 			t.Fatalf("corrupted data in unmarshal: expecting %v, got %v", tc.Expected, got)
+		}
+	}
+}
+
+func BenchmarkUnmarshalFromString(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		m := make(map[string]string)
+		if err := UnmarshalFromString(CombinedFmt, &m); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkUnmarshal(b *testing.B) {
+	data := []byte(CombinedFmt)
+	for i := 0; i < b.N; i++ {
+		m := make(map[string]string)
+		if err := Unmarshal(data, &m); err != nil {
+			b.Fatal(err)
 		}
 	}
 }
