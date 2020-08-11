@@ -11,7 +11,7 @@ const maxLatin1 = 255
 const (
 	EscDefault = Esc(iota)
 	EscJson
-	EscText
+	EscNone
 )
 
 type Esc int
@@ -22,7 +22,7 @@ func (e Esc) String() string {
 		return "default"
 	case EscJson:
 		return "json"
-	case EscText:
+	case EscNone:
 		return "raw"
 	default:
 		return "unknown"

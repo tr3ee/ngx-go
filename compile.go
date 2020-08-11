@@ -39,9 +39,9 @@ func Compile(logfmt string) (*NGX, error) {
 		} else if strings.HasPrefix(logfmt[p:], "default") {
 			p += 7
 			ngx.esc = EscDefault
-		} else if strings.HasPrefix(logfmt[p:], "raw") {
-			p += 3
-			ngx.esc = EscText
+		} else if strings.HasPrefix(logfmt[p:], "none") {
+			p += 4
+			ngx.esc = EscNone
 		} else {
 			return nil, ErrUnknownLogFormatEscaping
 		}
