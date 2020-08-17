@@ -66,9 +66,9 @@ var heximal = [maxLatin1 + 1]int8{}
 func init() {
 	for i := 0; i <= maxLatin1; i++ {
 		if i >= 'a' && i <= 'f' {
-			heximal[i] = int8(i) - 'a'
+			heximal[i] = int8(i) - 'a' + 10
 		} else if i >= 'A' && i <= 'F' {
-			heximal[i] = int8(i) - 'A'
+			heximal[i] = int8(i) - 'A' + 10
 		} else if i >= '0' && i <= '9' {
 			heximal[i] = int8(i) - '0'
 		} else {

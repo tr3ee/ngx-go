@@ -14,6 +14,8 @@ var positiveUnmarshal = []struct {
 	{`\$request\$request_body\$header_cookie\`, `\request\request_body\header_cookie\`, map[string]string{"request": "request", "request_body": "request_body", "header_cookie": "header_cookie"}},
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\request\"request_body\"\"header_cookie\"`, map[string]string{"request": "request", "request_body": "request_body", "header_cookie": "header_cookie"}},
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\requ\\\"est\"request_body\"\"header_cookie\"`, map[string]string{"request": "requ\\\"est", "request_body": "request_body", "header_cookie": "header_cookie"}},
+	{`escape=json;{"$key":"$value"}`, `{"$key":"$value"}`, map[string]string{"key": "$key", "value": "$value"}},
+	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065y":"\r\f\t\uf755\n"}`, map[string]string{"key": "$key", "value": "\r\f\t\xef\x9d\x95\n"}},
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -29,7 +31,7 @@ func TestUnmarshal(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(got, tc.Expected) {
-			t.Fatalf("corrupted data in unmarshal: expecting %v, got %v", tc.Expected, got)
+			t.Fatalf("corrupted data in unmarshal: expecting %q, got %q", tc.Expected, got)
 		}
 	}
 }
