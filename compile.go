@@ -49,13 +49,13 @@ func Compile(logfmt string) (*NGX, error) {
 		for p < len(logfmt) {
 			switch logfmt[p] {
 			case ' ', '\r', '\n', '\t', '\v', '\f':
-				// skip
+				p++
 			case ';':
+				p++
 				break skip_semi
 			default:
 				return nil, fmt.Errorf("expecting ';' after escape=%s", ngx.esc)
 			}
-			p++
 		}
 	}
 
