@@ -49,6 +49,13 @@ func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 		op := d.ops[i]
 		switch op.Type {
 		case ngxString, ngxEscString:
+			if !bytes.HasPrefix(data[p:], op.Extra) {
+				got := data[p:]
+				if len(got) > len(op.Extra) {
+					got = got[:len(op.Extra)]
+				}
+				return fmt.Errorf("got unexpected string %q, expecting %q", got, op.Extra)
+			}
 			p += len(op.Extra)
 		case ngxBind, ngxVariable:
 			var raw []byte
