@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"unicode/utf16"
 )
 
 const maxLatin1 = 255
@@ -171,7 +172,35 @@ func junescape(buf Buffer) (Buffer, error) {
 					for j := 1; j <= 4; j++ {
 						r = r<<4 | rune(heximal[raw[backslash+j]])
 					}
-					esc.WriteRune(r)
+					if utf16.IsSurrogate(r) {
+						/*
+								\ud800     \u????
+								 ^         ^
+							    backslash  next
+						*/
+						if next := backslash + 5; next+5 < length && raw[next] == '\\' && raw[next+1] == 'u' {
+							if heximal[raw[next+2]] >= 0 && heximal[raw[next+3]] >= 0 && heximal[raw[next+4]] >= 0 && heximal[raw[next+5]] >= 0 {
+								var r2 rune
+								for j := 2; j <= 5; j++ {
+									r2 = r2<<4 | rune(heximal[raw[next+j]])
+								}
+								combined := utf16.DecodeRune(r, r2)
+								if combined == '\uFFFD' {
+									appendRune(esc, r)
+									appendRune(esc, r2)
+								} else {
+									appendRune(esc, combined)
+								}
+								backslash = next + 1
+							} else {
+								return nil, fmt.Errorf("found invalid unicode escape format \\u%c%c%c%c", raw[next+2], raw[next+3], raw[next+4], raw[next+5])
+							}
+						} else {
+							appendRune(esc, r)
+						}
+					} else {
+						appendRune(esc, r)
+					}
 					backslash += 4
 				} else {
 					return nil, fmt.Errorf("found invalid unicode escape format \\u%c%c%c%c", raw[backslash+1], raw[backslash+2], raw[backslash+3], raw[backslash+4])
@@ -185,4 +214,50 @@ func junescape(buf Buffer) (Buffer, error) {
 		i = backslash
 	}
 	return NewBytesBuffer(esc.Bytes()), nil
+}
+
+const (
+	t1 = 0x00 // 0000 0000
+	tx = 0x80 // 1000 0000
+	t2 = 0xC0 // 1100 0000
+	t3 = 0xE0 // 1110 0000
+	t4 = 0xF0 // 1111 0000
+	t5 = 0xF8 // 1111 1000
+
+	maskx = 0x3F // 0011 1111
+	mask2 = 0x1F // 0001 1111
+	mask3 = 0x0F // 0000 1111
+	mask4 = 0x07 // 0000 0111
+
+	rune1Max = 1<<7 - 1
+	rune2Max = 1<<11 - 1
+	rune3Max = 1<<16 - 1
+
+	surrogateMin = 0xD800
+	surrogateMax = 0xDFFF
+
+	maxRune   = '\U0010FFFF' // Maximum valid Unicode code point.
+	runeError = '\uFFFD'     // the "error" Rune or "Unicode replacement character"
+)
+
+func appendRune(esc *bytes.Buffer, r rune) {
+	switch i := uint32(r); {
+	case i <= rune1Max:
+		esc.WriteByte(byte(r))
+	case i <= rune2Max:
+		esc.WriteByte(t2 | byte(r>>6))
+		esc.WriteByte(tx | byte(r)&maskx)
+	case i > maxRune, surrogateMin <= i && i <= surrogateMax:
+		r = runeError
+		fallthrough
+	case i <= rune3Max:
+		esc.WriteByte(t3 | byte(r>>12))
+		esc.WriteByte(tx | byte(r>>6)&maskx)
+		esc.WriteByte(tx | byte(r)&maskx)
+	default:
+		esc.WriteByte(t4 | byte(r>>18))
+		esc.WriteByte(tx | byte(r>>12)&maskx)
+		esc.WriteByte(tx | byte(r>>6)&maskx)
+		esc.WriteByte(tx | byte(r)&maskx)
+	}
 }

@@ -16,6 +16,10 @@ var positiveUnmarshal = []struct {
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\requ\\\"est\"request_body\"\"header_cookie\"`, map[string]string{"request": "requ\\\"est", "request_body": "request_body", "header_cookie": "header_cookie"}},
 	{`escape=json;{"$key":"$value"}`, `{"$key":"$value"}`, map[string]string{"key": "$key", "value": "$value"}},
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065y":"\r\f\t\uf755\n"}`, map[string]string{"key": "$key", "value": "\r\f\t\xef\x9d\x95\n"}},
+	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09"}`, map[string]string{"key": "$key", "value": "🌉"}},
+	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"surrogate pair : \ud83c\udf09"}`, map[string]string{"key": "$key", "value": "surrogate pair : 🌉"}},
+	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09\ud83c\udf09is\u0020surrogate\u0020pair"}`, map[string]string{"key": "$key", "value": "🌉🌉is surrogate pair"}},
+	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09\ud83c\udf09\ud83c\udf09\ud83c\udf09\""}`, map[string]string{"key": "$key", "value": "🌉🌉🌉🌉\""}},
 }
 
 func TestUnmarshal(t *testing.T) {
