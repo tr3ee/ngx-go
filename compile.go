@@ -81,16 +81,25 @@ func Compile(logfmt string) (*NGX, error) {
 					p++
 					bracket = false
 					break loop
-				case (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_':
+				case (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '.':
 				default:
 					break loop
 				}
 			}
 			if bracket {
-				return nil, fmt.Errorf("the closing bracket in %q variable is missing", logfmt[q:p])
+				return nil, fmt.Errorf("the closing bracket of variable %q is missing", logfmt[q:p])
 			}
 			if p-q <= 0 {
 				return nil, ErrInvalidLogFormat
+			}
+			if logfmt[q] == '.' {
+				return nil, fmt.Errorf("variable %q cannot start with '.'", logfmt[q:p])
+			}
+			if logfmt[p-1] == '.' {
+				return nil, fmt.Errorf("variable %q cannot end with '.'", logfmt[q:p])
+			}
+			if strings.Contains(logfmt[q:p], "..") {
+				return nil, fmt.Errorf("variable %q cannot have consecutive dots", logfmt[q:p])
 			}
 			pos := len(ngx.ops)
 			if pos > 0 && ngx.ops[pos-1].Type == ngxVariable {
