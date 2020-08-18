@@ -51,6 +51,17 @@ func (e Esc) isEscapeChar(ch byte) bool {
 	}
 }
 
+func (e Esc) Escape(buf Buffer) Buffer {
+	switch e {
+	case EscDefault:
+		return escape(buf)
+	case EscJson:
+		return jescape(buf)
+	default:
+		return buf
+	}
+}
+
 func (e Esc) Unescape(buf Buffer) (Buffer, error) {
 	switch e {
 	case EscDefault:
