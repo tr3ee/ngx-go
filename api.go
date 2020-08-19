@@ -1,6 +1,7 @@
 package ngx
 
 import (
+	"bytes"
 	"unsafe"
 )
 
@@ -11,10 +12,15 @@ type API interface {
 	UnmarshalFromString(str string, v interface{}) error
 }
 
+type Codec interface {
+	Encoder
+	Decoder
+}
+
 type Decoder interface {
 	Decode(unsafe.Pointer, Buffer) error
 }
 
 type Encoder interface {
-	Encoder(unsafe.Pointer, Buffer) error
+	Encode(unsafe.Pointer, *bytes.Buffer) error
 }

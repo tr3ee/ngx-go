@@ -8,40 +8,68 @@ import (
 	"github.com/modern-go/reflect2"
 )
 
-func decoderOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Decoder, error) {
-	keyDecoder, err := decoderOf(ngx, typ.Key())
+func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
+	keyCodec, err := codecOf(ngx, typ.Key())
 	if err != nil {
 		return nil, err
 	}
 
-	elemDecoder, err := decoderOf(ngx, typ.Elem())
+	elemCodec, err := codecOf(ngx, typ.Elem())
 	if err != nil {
 		return nil, err
 	}
 
-	return &MapDecoder{
-		ops:         ngx.ops,
-		esc:         ngx.esc,
-		mapType:     typ,
-		keyType:     typ.Key(),
-		elemType:    typ.Elem(),
-		keyDecoder:  keyDecoder,
-		elemDecoder: elemDecoder,
+	return &MapCodec{
+		ops:       ngx.ops,
+		esc:       ngx.esc,
+		mapType:   typ,
+		keyType:   typ.Key(),
+		elemType:  typ.Elem(),
+		keyCodec:  keyCodec,
+		elemCodec: elemCodec,
 	}, nil
 }
 
-type MapDecoder struct {
+type MapCodec struct {
 	ops []baseOp
 	esc Esc
 
-	mapType     *reflect2.UnsafeMapType
-	keyType     reflect2.Type
-	elemType    reflect2.Type
-	keyDecoder  Decoder
-	elemDecoder Decoder
+	mapType   *reflect2.UnsafeMapType
+	keyType   reflect2.Type
+	elemType  reflect2.Type
+	keyCodec  Codec
+	elemCodec Codec
 }
 
-func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *MapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+	if *(*unsafe.Pointer)(ptr) == nil {
+		text.WriteString(d.esc.Nil())
+		return nil
+	}
+	length := len(d.ops)
+	for i := 0; i < length; i++ {
+		op := d.ops[i]
+		switch op.Type {
+		case ngxString, ngxEscString:
+			text.Write(op.Extra)
+		case ngxBind, ngxVariable:
+
+			key := d.keyType.UnsafeNew()
+			if err := d.keyCodec.Decode(key, NewBytesBuffer(op.Extra)); err != nil {
+				return err
+			}
+
+			val := d.mapType.UnsafeGetIndex(ptr, key)
+
+			if err := d.elemCodec.Encode(val, text); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *MapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)
@@ -91,7 +119,7 @@ func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 			}
 
 			key := d.keyType.UnsafeNew()
-			if err := d.keyDecoder.Decode(key, NewBytesBuffer(op.Extra)); err != nil {
+			if err := d.keyCodec.Decode(key, NewBytesBuffer(op.Extra)); err != nil {
 				return err
 			}
 
@@ -102,7 +130,9 @@ func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 				text = raw
 			}
 			elem := d.elemType.UnsafeNew()
-			d.elemDecoder.Decode(elem, text)
+			if err := d.elemCodec.Decode(elem, text); err != nil {
+				return err
+			}
 
 			d.mapType.UnsafeSetIndex(ptr, key, elem)
 

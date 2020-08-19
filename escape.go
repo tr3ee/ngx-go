@@ -73,6 +73,17 @@ func (e Esc) Unescape(buf Buffer) (Buffer, error) {
 	}
 }
 
+func (e Esc) Nil() string {
+	switch e {
+	case EscDefault:
+		return "-"
+	case EscJson:
+		return "null"
+	default:
+		return ""
+	}
+}
+
 var heximal = [maxLatin1 + 1]int8{}
 
 func init() {
@@ -90,7 +101,33 @@ func init() {
 }
 
 func escape(buf Buffer) Buffer {
-	return buf
+	if buf.Len() <= 0 {
+		return buf
+	}
+	raw := buf.Bytes()
+	length := len(raw)
+	esc := bytes.NewBuffer(make([]byte, 0, length))
+
+	for i := 0; i < length; i++ {
+		ch := raw[i]
+		if ch < 0x20 {
+			esc.WriteString(`\x`)
+			esc.WriteByte('0' + ch>>4)
+			ch &= 0xF
+			if ch < 10 {
+				esc.WriteByte('0' + ch)
+			} else {
+				esc.WriteByte('A' + ch - 10)
+			}
+		} else {
+			if ch == '\\' || ch == '"' {
+				esc.WriteByte('\\')
+			}
+			esc.WriteByte(ch)
+		}
+	}
+
+	return NewBytesBuffer(esc.Bytes())
 }
 
 func unescape(buf Buffer) (Buffer, error) {
@@ -138,7 +175,49 @@ func unescape(buf Buffer) (Buffer, error) {
 }
 
 func jescape(buf Buffer) Buffer {
-	return buf
+	if buf.Len() <= 0 {
+		return buf
+	}
+	raw := buf.Bytes()
+	length := len(raw)
+	esc := bytes.NewBuffer(make([]byte, 0, length))
+
+	for i := 0; i < length; i++ {
+		ch := raw[i]
+		if ch < 0x20 {
+			esc.WriteByte('\\')
+			switch ch {
+			case '\n':
+				esc.WriteByte('n')
+			case '\r':
+				esc.WriteByte('r')
+			case '\t':
+				esc.WriteByte('t')
+			case '\b':
+				esc.WriteByte('b')
+			case '\f':
+				esc.WriteByte('f')
+			default:
+				esc.WriteByte('u')
+				esc.WriteByte('0')
+				esc.WriteByte('0')
+				esc.WriteByte('0' + ch>>4)
+				ch &= 0xF
+				if ch < 10 {
+					esc.WriteByte('0' + ch)
+				} else {
+					esc.WriteByte('A' + ch - 10)
+				}
+			}
+		} else {
+			if ch == '\\' || ch == '"' {
+				esc.WriteByte('\\')
+			}
+			esc.WriteByte(ch)
+		}
+	}
+
+	return NewBytesBuffer(esc.Bytes())
 }
 
 func junescape(buf Buffer) (Buffer, error) {

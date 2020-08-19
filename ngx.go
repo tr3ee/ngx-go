@@ -1,9 +1,11 @@
 package ngx
 
 import (
+	"bytes"
 	"errors"
 	"reflect"
 	"sync"
+	"unsafe"
 
 	"github.com/modern-go/reflect2"
 )
@@ -58,12 +60,78 @@ type NGX struct {
 	supported map[string]int
 }
 
-func (ngx *NGX) MarshalToString(v interface{}) (string, error) {
-	return "", nil
+func (ngx *NGX) MarshalToString(itf interface{}) (string, error) {
+	if len(ngx.ops) <= 0 {
+		return "", nil
+	}
+
+	ptr := reflect2.PtrOf(itf)
+
+	rtyp := reflect2.RTypeOf(itf)
+
+	buf := bytes.NewBuffer(nil)
+
+	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
+		if err := codec.(Codec).Encode(ptr, buf); err != nil {
+			return "", err
+		}
+		bytes := buf.Bytes()
+		return *(*string)(unsafe.Pointer(&bytes)), nil
+	}
+
+	// create codec
+
+	typ := reflect2.TypeOf(itf)
+
+	d, err := codecOf(ngx, typ)
+	if err != nil {
+		return "", err
+	}
+
+	if typ.LikePtr() {
+		d = &RefCodec{d}
+	}
+
+	ngx.cache.Store(rtyp, d)
+
+	if err := d.Encode(ptr, buf); err != nil {
+		return "", err
+	}
+	bytes := buf.Bytes()
+	return *(*string)(unsafe.Pointer(&bytes)), nil
 }
 
-func (ngx *NGX) Marshal(v interface{}) ([]byte, error) {
-	return nil, nil
+func (ngx *NGX) Marshal(itf interface{}) ([]byte, error) {
+	if len(ngx.ops) <= 0 {
+		return nil, nil
+	}
+
+	ptr := reflect2.PtrOf(itf)
+
+	rtyp := reflect2.RTypeOf(itf)
+
+	buf := bytes.NewBuffer(nil)
+
+	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
+		if err := codec.(Codec).Encode(ptr, buf); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
+
+	// create codec
+
+	d, err := codecOf(ngx, reflect2.TypeOf(itf))
+	if err != nil {
+		return nil, err
+	}
+
+	ngx.cache.Store(rtyp, d)
+
+	if err := d.Encode(ptr, buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {
@@ -78,18 +146,18 @@ func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {
 
 	rtyp := reflect2.RTypeOf(itf)
 
-	if decoder, _ := ngx.cache.Load(rtyp); decoder != nil {
-		return decoder.(Decoder).Decode(ptr, NewStringBuffer(data))
+	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
+		return codec.(Codec).Decode(ptr, NewStringBuffer(data))
 	}
 
-	// create decoder
+	// create codec
 
 	typ := reflect2.TypeOf(itf)
 	if typ.Kind() != reflect.Ptr {
 		return ErrNonPointer
 	}
 
-	d, err := decoderOf(ngx, typ.(*reflect2.UnsafePtrType).Elem())
+	d, err := codecOf(ngx, typ.(*reflect2.UnsafePtrType).Elem())
 	if err != nil {
 		return err
 	}
@@ -111,18 +179,18 @@ func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
 
 	rtyp := reflect2.RTypeOf(itf)
 
-	if decoder, _ := ngx.cache.Load(rtyp); decoder != nil {
-		return decoder.(Decoder).Decode(ptr, NewBytesBuffer(data))
+	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
+		return codec.(Codec).Decode(ptr, NewBytesBuffer(data))
 	}
 
-	// create decoder
+	// create codec
 
 	typ := reflect2.TypeOf(itf)
 	if typ.Kind() != reflect.Ptr {
 		return ErrNonPointer
 	}
 
-	d, err := decoderOf(ngx, typ.(*reflect2.UnsafePtrType).Elem())
+	d, err := codecOf(ngx, typ.(*reflect2.UnsafePtrType).Elem())
 	if err != nil {
 		return err
 	}
