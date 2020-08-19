@@ -49,7 +49,7 @@ type structCodec struct {
 	esc Esc
 }
 
-func (d *structCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *structCodec) Encode(ptr unsafe.Pointer, text Writer) error {
 	length := len(d.ops)
 	for i := 0; i < length; i++ {
 		op := d.ops[i]
@@ -68,7 +68,7 @@ func (d *structCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return nil
 }
 
-func (d *structCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *structCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)
@@ -144,16 +144,14 @@ func (d *structCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 				}
 			}
 
-			text := Buffer(NewBytesBuffer(raw))
-			if raw, err := d.esc.Unescape(text); err != nil {
+			raw, err := d.esc.Unescape(raw)
+			if err != nil {
 				return err
-			} else {
-				text = raw
 			}
 
 			bindPtr := unsafe.Pointer(uintptr(ptr) + op.Offset)
 
-			if err := op.Codec.Decode(bindPtr, text); err != nil {
+			if err := op.Codec.Decode(bindPtr, NewBytesReader(raw)); err != nil {
 				return fmt.Errorf("field %q %v", op.Extra, err)
 			}
 

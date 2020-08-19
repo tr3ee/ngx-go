@@ -28,7 +28,7 @@ func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
 	for i := 0; i < len(ngx.ops); i++ {
 		ops[i].baseOp = ngx.ops[i]
 		ops[i].KeyV = typ.Key().UnsafeNew()
-		if err := keyCodec.Decode(ops[i].KeyV, NewBytesBuffer(ops[i].Extra)); err != nil {
+		if err := keyCodec.Decode(ops[i].KeyV, NewBytesReader(ops[i].Extra)); err != nil {
 			return nil, err
 		}
 	}
@@ -55,7 +55,7 @@ type mapCodec struct {
 	elemCodec Codec
 }
 
-func (d *mapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *mapCodec) Encode(ptr unsafe.Pointer, text Writer) error {
 	if *(*unsafe.Pointer)(ptr) == nil {
 		text.WriteString(d.esc.Nil())
 		return nil
@@ -78,7 +78,7 @@ func (d *mapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return nil
 }
 
-func (d *mapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)
@@ -127,14 +127,13 @@ func (d *mapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 				}
 			}
 
-			text := Buffer(NewBytesBuffer(raw))
-			if raw, err := d.esc.Unescape(text); err != nil {
+			raw, err := d.esc.Unescape(raw)
+			if err != nil {
 				return err
-			} else {
-				text = raw
 			}
+
 			elem := d.elemType.UnsafeNew()
-			if err := d.elemCodec.Decode(elem, text); err != nil {
+			if err := d.elemCodec.Decode(elem, NewBytesReader(raw)); err != nil {
 				return err
 			}
 

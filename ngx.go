@@ -147,7 +147,7 @@ func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {
 	rtyp := reflect2.RTypeOf(itf)
 
 	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
-		return codec.(Codec).Decode(ptr, NewStringBuffer(data))
+		return codec.(Codec).Decode(ptr, NewStringReader(data))
 	}
 
 	// create codec
@@ -164,7 +164,7 @@ func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {
 
 	ngx.cache.Store(rtyp, d)
 
-	return d.Decode(ptr, NewStringBuffer(data))
+	return d.Decode(ptr, NewStringReader(data))
 }
 
 func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
@@ -180,7 +180,7 @@ func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
 	rtyp := reflect2.RTypeOf(itf)
 
 	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
-		return codec.(Codec).Decode(ptr, NewBytesBuffer(data))
+		return codec.(Codec).Decode(ptr, NewBytesReader(data))
 	}
 
 	// create codec
@@ -197,5 +197,5 @@ func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
 
 	ngx.cache.Store(rtyp, d)
 
-	return d.Decode(ptr, NewBytesBuffer(data))
+	return d.Decode(ptr, NewBytesReader(data))
 }

@@ -51,7 +51,7 @@ func (e Esc) isEscapeChar(ch byte) bool {
 	}
 }
 
-func (e Esc) Escape(buf Buffer) Buffer {
+func (e Esc) Escape(buf []byte) []byte {
 	switch e {
 	case EscDefault:
 		return escape(buf)
@@ -62,7 +62,7 @@ func (e Esc) Escape(buf Buffer) Buffer {
 	}
 }
 
-func (e Esc) Unescape(buf Buffer) (Buffer, error) {
+func (e Esc) Unescape(buf []byte) ([]byte, error) {
 	switch e {
 	case EscDefault:
 		return unescape(buf)
@@ -100,68 +100,70 @@ func init() {
 	}
 }
 
-func escape(buf Buffer) Buffer {
-	if buf.Len() <= 0 {
+func escape(buf []byte) []byte {
+	length := len(buf)
+	if length <= 0 {
 		return buf
 	}
-	raw := buf.Bytes()
-	length := len(raw)
-	esc := bytes.NewBuffer(make([]byte, 0, length))
+	w := AcquireWriter()
 
 	for i := 0; i < length; i++ {
-		ch := raw[i]
+		ch := buf[i]
 		if ch < 0x20 {
-			esc.WriteString(`\x`)
-			esc.WriteByte('0' + ch>>4)
+			w.WriteString(`\x`)
+			w.WriteByte('0' + ch>>4)
 			ch &= 0xF
 			if ch < 10 {
-				esc.WriteByte('0' + ch)
+				w.WriteByte('0' + ch)
 			} else {
-				esc.WriteByte('A' + ch - 10)
+				w.WriteByte('A' + ch - 10)
 			}
 		} else {
 			if ch == '\\' || ch == '"' {
-				esc.WriteByte('\\')
+				w.WriteByte('\\')
 			}
-			esc.WriteByte(ch)
+			w.WriteByte(ch)
 		}
 	}
 
-	return NewBytesBuffer(esc.Bytes())
+	esc := make([]byte, w.Len())
+	copy(esc, w.Bytes())
+	ReleaseWriter(w)
+	return esc
 }
 
-func unescape(buf Buffer) (Buffer, error) {
-	if buf.Len() <= 0 {
+func unescape(buf []byte) ([]byte, error) {
+	length := len(buf)
+	if length <= 0 {
 		return buf, nil
 	}
-	raw := buf.Bytes()
-	length := len(raw)
-	esc := bytes.NewBuffer(make([]byte, 0, length))
+
+	w := AcquireWriter()
 
 	for i := 0; i < length; i++ {
-		backslash := bytes.IndexByte(raw[i:], '\\')
+		backslash := bytes.IndexByte(buf[i:], '\\')
 		if backslash < 0 {
-			esc.Write(raw[i:])
+			w.Write(buf[i:])
 			break
 		} else {
 			backslash += i
-			esc.Write(raw[i:backslash])
+			w.Write(buf[i:backslash])
 		}
 
 		backslash++
 		if backslash >= length {
 			return nil, errors.New("found EOF while unescaping '\\' format")
 		}
-		switch ch := raw[backslash]; ch {
+		switch ch := buf[backslash]; ch {
 		case '\\', '"':
-			esc.WriteByte(ch)
+			w.WriteByte(ch)
 		case 'x':
 			if backslash+2 < length {
-				if heximal[raw[backslash+1]] >= 0 && heximal[raw[backslash+2]] >= 0 {
-					esc.WriteByte(byte(heximal[raw[backslash+1]]<<4 | heximal[raw[backslash+1]]))
+				if heximal[buf[backslash+1]] >= 0 && heximal[buf[backslash+2]] >= 0 {
+					w.WriteByte(byte(heximal[buf[backslash+1]]<<4 | heximal[buf[backslash+1]]))
 					backslash += 2
 				} else {
-					return nil, fmt.Errorf("found invalid hex escape format \\x%c%c", raw[backslash+1], raw[backslash+2])
+					return nil, fmt.Errorf("found invalid hex escape format \\x%c%c", buf[backslash+1], buf[backslash+2])
 				}
 			} else {
 				return nil, errors.New("found EOF while unescaping '\\x??' format")
@@ -171,96 +173,103 @@ func unescape(buf Buffer) (Buffer, error) {
 		}
 		i = backslash
 	}
-	return NewBytesBuffer(esc.Bytes()), nil
+
+	raw := make([]byte, w.Len())
+	copy(raw, w.Bytes())
+	ReleaseWriter(w)
+	return raw, nil
 }
 
-func jescape(buf Buffer) Buffer {
-	if buf.Len() <= 0 {
+func jescape(buf []byte) []byte {
+	length := len(buf)
+	if length <= 0 {
 		return buf
 	}
-	raw := buf.Bytes()
-	length := len(raw)
-	esc := bytes.NewBuffer(make([]byte, 0, length))
+
+	w := AcquireWriter()
 
 	for i := 0; i < length; i++ {
-		ch := raw[i]
+		ch := buf[i]
 		if ch < 0x20 {
-			esc.WriteByte('\\')
+			w.WriteByte('\\')
 			switch ch {
 			case '\n':
-				esc.WriteByte('n')
+				w.WriteByte('n')
 			case '\r':
-				esc.WriteByte('r')
+				w.WriteByte('r')
 			case '\t':
-				esc.WriteByte('t')
+				w.WriteByte('t')
 			case '\b':
-				esc.WriteByte('b')
+				w.WriteByte('b')
 			case '\f':
-				esc.WriteByte('f')
+				w.WriteByte('f')
 			default:
-				esc.WriteByte('u')
-				esc.WriteByte('0')
-				esc.WriteByte('0')
-				esc.WriteByte('0' + ch>>4)
+				w.WriteByte('0')
+				w.WriteByte('0')
+				w.WriteByte('u')
+				w.WriteByte('0' + ch>>4)
 				ch &= 0xF
 				if ch < 10 {
-					esc.WriteByte('0' + ch)
+					w.WriteByte('0' + ch)
 				} else {
-					esc.WriteByte('A' + ch - 10)
+					w.WriteByte('A' + ch - 10)
 				}
 			}
 		} else {
 			if ch == '\\' || ch == '"' {
-				esc.WriteByte('\\')
+				w.WriteByte('\\')
 			}
-			esc.WriteByte(ch)
+			w.WriteByte(ch)
 		}
 	}
 
-	return NewBytesBuffer(esc.Bytes())
+	esc := make([]byte, w.Len())
+	copy(esc, w.Bytes())
+	ReleaseWriter(w)
+	return esc
 }
 
-func junescape(buf Buffer) (Buffer, error) {
-	if buf.Len() <= 0 {
+func junescape(buf []byte) ([]byte, error) {
+	length := len(buf)
+	if length <= 0 {
 		return buf, nil
 	}
-	raw := buf.Bytes()
-	length := len(raw)
-	esc := bytes.NewBuffer(make([]byte, 0, length))
+
+	w := AcquireWriter()
 
 	for i := 0; i < length; i++ {
-		backslash := bytes.IndexByte(raw[i:], '\\')
+		backslash := bytes.IndexByte(buf[i:], '\\')
 		if backslash < 0 {
-			esc.Write(raw[i:])
+			w.Write(buf[i:])
 			break
 		} else {
 			backslash += i
-			esc.Write(raw[i:backslash])
+			w.Write(buf[i:backslash])
 		}
 
 		backslash++
 		if backslash >= length {
 			return nil, errors.New("found EOF while unescaping '\\' format")
 		}
-		switch ch := raw[backslash]; ch {
+		switch ch := buf[backslash]; ch {
 		case '\\', '"':
-			esc.WriteByte(ch)
+			w.WriteByte(ch)
 		case 'n':
-			esc.WriteByte('\n')
+			w.WriteByte('\n')
 		case 'r':
-			esc.WriteByte('\r')
+			w.WriteByte('\r')
 		case 't':
-			esc.WriteByte('\t')
+			w.WriteByte('\t')
 		case 'b':
-			esc.WriteByte('\b')
+			w.WriteByte('\b')
 		case 'f':
-			esc.WriteByte('\f')
+			w.WriteByte('\f')
 		case 'u':
 			if backslash+4 < length {
-				if heximal[raw[backslash+1]] >= 0 && heximal[raw[backslash+2]] >= 0 && heximal[raw[backslash+3]] >= 0 && heximal[raw[backslash+4]] >= 0 {
+				if heximal[buf[backslash+1]] >= 0 && heximal[buf[backslash+2]] >= 0 && heximal[buf[backslash+3]] >= 0 && heximal[buf[backslash+4]] >= 0 {
 					var r rune
 					for j := 1; j <= 4; j++ {
-						r = r<<4 | rune(heximal[raw[backslash+j]])
+						r = r<<4 | rune(heximal[buf[backslash+j]])
 					}
 					if utf16.IsSurrogate(r) {
 						/*
@@ -268,32 +277,32 @@ func junescape(buf Buffer) (Buffer, error) {
 								 ^         ^
 							    backslash  next
 						*/
-						if next := backslash + 5; next+5 < length && raw[next] == '\\' && raw[next+1] == 'u' {
-							if heximal[raw[next+2]] >= 0 && heximal[raw[next+3]] >= 0 && heximal[raw[next+4]] >= 0 && heximal[raw[next+5]] >= 0 {
+						if next := backslash + 5; next+5 < length && buf[next] == '\\' && buf[next+1] == 'u' {
+							if heximal[buf[next+2]] >= 0 && heximal[buf[next+3]] >= 0 && heximal[buf[next+4]] >= 0 && heximal[buf[next+5]] >= 0 {
 								var r2 rune
 								for j := 2; j <= 5; j++ {
-									r2 = r2<<4 | rune(heximal[raw[next+j]])
+									r2 = r2<<4 | rune(heximal[buf[next+j]])
 								}
 								combined := utf16.DecodeRune(r, r2)
 								if combined == '\uFFFD' {
-									appendRune(esc, r)
-									appendRune(esc, r2)
+									appendRune(w, r)
+									appendRune(w, r2)
 								} else {
-									appendRune(esc, combined)
+									appendRune(w, combined)
 								}
 								backslash = next + 1
 							} else {
-								return nil, fmt.Errorf("found invalid unicode escape format \\u%c%c%c%c", raw[next+2], raw[next+3], raw[next+4], raw[next+5])
+								return nil, fmt.Errorf("found invalid unicode escape format \\u%c%c%c%c", buf[next+2], buf[next+3], buf[next+4], buf[next+5])
 							}
 						} else {
-							appendRune(esc, r)
+							appendRune(w, r)
 						}
 					} else {
-						appendRune(esc, r)
+						appendRune(w, r)
 					}
 					backslash += 4
 				} else {
-					return nil, fmt.Errorf("found invalid unicode escape format \\u%c%c%c%c", raw[backslash+1], raw[backslash+2], raw[backslash+3], raw[backslash+4])
+					return nil, fmt.Errorf("found invalid unicode escape format \\u%c%c%c%c", buf[backslash+1], buf[backslash+2], buf[backslash+3], buf[backslash+4])
 				}
 			} else {
 				return nil, errors.New("found EOF while unescaping '\\u??' format")
@@ -303,7 +312,11 @@ func junescape(buf Buffer) (Buffer, error) {
 		}
 		i = backslash
 	}
-	return NewBytesBuffer(esc.Bytes()), nil
+
+	raw := make([]byte, w.Len())
+	copy(raw, w.Bytes())
+	ReleaseWriter(w)
+	return raw, nil
 }
 
 const (
@@ -330,24 +343,24 @@ const (
 	runeError = '\uFFFD'     // the "error" Rune or "Unicode replacement character"
 )
 
-func appendRune(esc *bytes.Buffer, r rune) {
+func appendRune(w Writer, r rune) {
 	switch i := uint32(r); {
 	case i <= rune1Max:
-		esc.WriteByte(byte(r))
+		w.WriteByte(byte(r))
 	case i <= rune2Max:
-		esc.WriteByte(t2 | byte(r>>6))
-		esc.WriteByte(tx | byte(r)&maskx)
+		w.WriteByte(t2 | byte(r>>6))
+		w.WriteByte(tx | byte(r)&maskx)
 	case i > maxRune, surrogateMin <= i && i <= surrogateMax:
 		r = runeError
 		fallthrough
 	case i <= rune3Max:
-		esc.WriteByte(t3 | byte(r>>12))
-		esc.WriteByte(tx | byte(r>>6)&maskx)
-		esc.WriteByte(tx | byte(r)&maskx)
+		w.WriteByte(t3 | byte(r>>12))
+		w.WriteByte(tx | byte(r>>6)&maskx)
+		w.WriteByte(tx | byte(r)&maskx)
 	default:
-		esc.WriteByte(t4 | byte(r>>18))
-		esc.WriteByte(tx | byte(r>>12)&maskx)
-		esc.WriteByte(tx | byte(r>>6)&maskx)
-		esc.WriteByte(tx | byte(r)&maskx)
+		w.WriteByte(t4 | byte(r>>18))
+		w.WriteByte(tx | byte(r>>12)&maskx)
+		w.WriteByte(tx | byte(r>>6)&maskx)
+		w.WriteByte(tx | byte(r)&maskx)
 	}
 }
