@@ -10,11 +10,11 @@ import (
 
 type structOp struct {
 	baseOp
-	Offset  uintptr
-	Decoder Decoder
+	Offset uintptr
+	Codec  Codec
 }
 
-func decoderOfStruct(ngx *NGX, typ *reflect2.UnsafeStructType) (Decoder, error) {
+func codecOfStruct(ngx *NGX, typ *reflect2.UnsafeStructType) (Codec, error) {
 	ops := make([]structOp, len(ngx.ops))
 	for i := 0; i < len(ops); i++ {
 		ops[i].baseOp = ngx.ops[i]
@@ -34,22 +34,41 @@ func decoderOfStruct(ngx *NGX, typ *reflect2.UnsafeStructType) (Decoder, error) 
 		if ind, ok := ngx.supported[name]; ok {
 			ops[ind].Type = ngxBind
 			ops[ind].Offset = field.Offset()
-			dec, err := decoderOf(ngx, field.Type())
+			dec, err := codecOf(ngx, field.Type())
 			if err != nil {
 				return nil, err
 			}
-			ops[ind].Decoder = dec
+			ops[ind].Codec = dec
 		}
 	}
-	return &StructDecoder{ops, ngx.esc}, nil
+	return &structCodec{ops, ngx.esc}, nil
 }
 
-type StructDecoder struct {
+type structCodec struct {
 	ops []structOp
 	esc Esc
 }
 
-func (d *StructDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *structCodec) Encode(ptr unsafe.Pointer, text Writer) error {
+	length := len(d.ops)
+	for i := 0; i < length; i++ {
+		op := d.ops[i]
+		switch op.Type {
+		case ngxString, ngxEscString:
+			text.Write(op.Extra)
+		case ngxVariable:
+			text.WriteString(d.esc.Nil())
+		case ngxBind:
+			bindPtr := unsafe.Pointer(uintptr(ptr) + op.Offset)
+			if err := op.Codec.Encode(bindPtr, text); err != nil {
+				return fmt.Errorf("field %q %v", op.Extra, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (d *structCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)
@@ -125,16 +144,14 @@ func (d *StructDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 				}
 			}
 
-			text := Buffer(NewBytesBuffer(raw))
-			if raw, err := d.esc.Unescape(text); err != nil {
+			raw, err := d.esc.Unescape(raw)
+			if err != nil {
 				return err
-			} else {
-				text = raw
 			}
 
 			bindPtr := unsafe.Pointer(uintptr(ptr) + op.Offset)
 
-			if err := op.Decoder.Decode(bindPtr, text); err != nil {
+			if err := op.Codec.Decode(bindPtr, NewBytesReader(raw)); err != nil {
 				return fmt.Errorf("field %q %v", op.Extra, err)
 			}
 

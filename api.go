@@ -11,10 +11,7 @@ type API interface {
 	UnmarshalFromString(str string, v interface{}) error
 }
 
-type Decoder interface {
-	Decode(unsafe.Pointer, Buffer) error
-}
-
-type Encoder interface {
-	Encoder(unsafe.Pointer, Buffer) error
+type Codec interface {
+	Encode(unsafe.Pointer, Writer) error
+	Decode(unsafe.Pointer, Reader) error
 }

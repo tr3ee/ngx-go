@@ -8,40 +8,77 @@ import (
 	"github.com/modern-go/reflect2"
 )
 
-func decoderOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Decoder, error) {
-	keyDecoder, err := decoderOf(ngx, typ.Key())
+type mapOp struct {
+	baseOp
+	KeyV unsafe.Pointer
+}
+
+func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
+	keyCodec, err := codecOf(ngx, typ.Key())
 	if err != nil {
 		return nil, err
 	}
 
-	elemDecoder, err := decoderOf(ngx, typ.Elem())
+	elemCodec, err := codecOf(ngx, typ.Elem())
 	if err != nil {
 		return nil, err
 	}
 
-	return &MapDecoder{
-		ops:         ngx.ops,
-		esc:         ngx.esc,
-		mapType:     typ,
-		keyType:     typ.Key(),
-		elemType:    typ.Elem(),
-		keyDecoder:  keyDecoder,
-		elemDecoder: elemDecoder,
+	ops := make([]mapOp, len(ngx.ops))
+	for i := 0; i < len(ngx.ops); i++ {
+		ops[i].baseOp = ngx.ops[i]
+		ops[i].KeyV = typ.Key().UnsafeNew()
+		if err := keyCodec.Decode(ops[i].KeyV, NewBytesReader(ops[i].Extra)); err != nil {
+			return nil, err
+		}
+	}
+
+	return &mapCodec{
+		ops:       ops,
+		esc:       ngx.esc,
+		mapType:   typ,
+		keyType:   typ.Key(),
+		elemType:  typ.Elem(),
+		keyCodec:  keyCodec,
+		elemCodec: elemCodec,
 	}, nil
 }
 
-type MapDecoder struct {
-	ops []baseOp
+type mapCodec struct {
+	ops []mapOp
 	esc Esc
 
-	mapType     *reflect2.UnsafeMapType
-	keyType     reflect2.Type
-	elemType    reflect2.Type
-	keyDecoder  Decoder
-	elemDecoder Decoder
+	mapType   *reflect2.UnsafeMapType
+	keyType   reflect2.Type
+	elemType  reflect2.Type
+	keyCodec  Codec
+	elemCodec Codec
 }
 
-func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *mapCodec) Encode(ptr unsafe.Pointer, text Writer) error {
+	if *(*unsafe.Pointer)(ptr) == nil {
+		text.WriteString(d.esc.Nil())
+		return nil
+	}
+	length := len(d.ops)
+	for i := 0; i < length; i++ {
+		op := d.ops[i]
+		switch op.Type {
+		case ngxString, ngxEscString:
+			text.Write(op.Extra)
+		case ngxBind, ngxVariable:
+
+			val := d.mapType.UnsafeGetIndex(ptr, op.KeyV)
+
+			if err := d.elemCodec.Encode(val, text); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)
@@ -90,21 +127,17 @@ func (d *MapDecoder) Decode(ptr unsafe.Pointer, text Buffer) error {
 				}
 			}
 
-			key := d.keyType.UnsafeNew()
-			if err := d.keyDecoder.Decode(key, NewBytesBuffer(op.Extra)); err != nil {
+			raw, err := d.esc.Unescape(raw)
+			if err != nil {
 				return err
 			}
 
-			text := Buffer(NewBytesBuffer(raw))
-			if raw, err := d.esc.Unescape(text); err != nil {
-				return err
-			} else {
-				text = raw
-			}
 			elem := d.elemType.UnsafeNew()
-			d.elemDecoder.Decode(elem, text)
+			if err := d.elemCodec.Decode(elem, NewBytesReader(raw)); err != nil {
+				return err
+			}
 
-			d.mapType.UnsafeSetIndex(ptr, key, elem)
+			d.mapType.UnsafeSetIndex(ptr, op.KeyV, elem)
 
 		default:
 			return fmt.Errorf("Unsupported operator type(%d)", op.Type)

@@ -3,6 +3,7 @@ package ngx
 import "testing"
 
 var positiveFormats = []string{
+	CombinedFmt,
 	`$request "$request_body""$header_cookie"`,
 	`$request "$request_body" "$header_cookie"`,
 	`\$request "$request_body" "$header_cookie"`,
@@ -11,12 +12,20 @@ var positiveFormats = []string{
 	`escape=json ; $request "$request_body""$header_cookie"`,
 	`escape=none ; $request "$request_body""$header_cookie"`,
 	`escape=default           		; $request "$request_body" "$header_cookie"`,
+	`escape=json;$request "$request_body""$header.cookie"`,
+	`escape=json;$request "$request_body""$header.cookie"$$`,
 }
 
 var negativeFormats = []string{
 	`escape=json$request "$request_body""$header_cookie"`,
+	`escape=json;${request "$request_body""$header_cookie"`,
 	`escape=json $request "$request_body""$header_cookie"`,
 	`escape=unknown ;$request "$request_body""$header_cookie"`,
+	`escape=json;$request "$request_body""$.cookie"`,
+	`escape=json;$request "$request_body.""$cookie"`,
+	`escape=json;$request "$request_body""$header..cookie"`,
+	`escape=json;$request "$request_body""$header....cookie"`,
+	`escape=json;$request "$request_body""$header.cookie"$`,
 }
 
 func TestCompile(t *testing.T) {
