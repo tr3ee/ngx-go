@@ -16,6 +16,8 @@ type Writer interface {
 	WriteByte(c byte) error
 	WriteRune(r rune) (int, error)
 	WriteString(s string) (int, error)
+	CopyBytes() []byte
+	CopyString() string
 }
 
 var writerPool = &sync.Pool{
@@ -158,4 +160,16 @@ func (w *writer) WriteString(s string) (int, error) {
 // but it retains the underlying storage for use by future writes.
 func (w *writer) Reset() {
 	w.buf = w.buf[:0]
+}
+
+func (w *writer) CopyBytes() []byte {
+	buf := make([]byte, len(w.buf))
+	copy(buf, w.buf)
+	return buf
+}
+
+func (w *writer) CopyString() string {
+	buf := make([]byte, len(w.buf))
+	copy(buf, w.buf)
+	return *(*string)(unsafe.Pointer(&buf))
 }

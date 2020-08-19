@@ -1,11 +1,9 @@
 package ngx
 
 import (
-	"bytes"
 	"errors"
 	"reflect"
 	"sync"
-	"unsafe"
 
 	"github.com/modern-go/reflect2"
 )
@@ -69,14 +67,15 @@ func (ngx *NGX) MarshalToString(itf interface{}) (string, error) {
 
 	rtyp := reflect2.RTypeOf(itf)
 
-	buf := bytes.NewBuffer(nil)
+	w := AcquireWriter()
 
 	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
-		if err := codec.(Codec).Encode(ptr, buf); err != nil {
+		if err := codec.(Codec).Encode(ptr, w); err != nil {
 			return "", err
 		}
-		bytes := buf.Bytes()
-		return *(*string)(unsafe.Pointer(&bytes)), nil
+		res := w.CopyString()
+		ReleaseWriter(w)
+		return res, nil
 	}
 
 	// create codec
@@ -94,11 +93,12 @@ func (ngx *NGX) MarshalToString(itf interface{}) (string, error) {
 
 	ngx.cache.Store(rtyp, d)
 
-	if err := d.Encode(ptr, buf); err != nil {
+	if err := d.Encode(ptr, w); err != nil {
 		return "", err
 	}
-	bytes := buf.Bytes()
-	return *(*string)(unsafe.Pointer(&bytes)), nil
+	res := w.CopyString()
+	ReleaseWriter(w)
+	return res, nil
 }
 
 func (ngx *NGX) Marshal(itf interface{}) ([]byte, error) {
@@ -110,28 +110,38 @@ func (ngx *NGX) Marshal(itf interface{}) ([]byte, error) {
 
 	rtyp := reflect2.RTypeOf(itf)
 
-	buf := bytes.NewBuffer(nil)
+	w := AcquireWriter()
 
 	if codec, _ := ngx.cache.Load(rtyp); codec != nil {
-		if err := codec.(Codec).Encode(ptr, buf); err != nil {
+		if err := codec.(Codec).Encode(ptr, w); err != nil {
 			return nil, err
 		}
-		return buf.Bytes(), nil
+		res := w.CopyBytes()
+		ReleaseWriter(w)
+		return res, nil
 	}
 
 	// create codec
+
+	typ := reflect2.TypeOf(itf)
 
 	d, err := codecOf(ngx, reflect2.TypeOf(itf))
 	if err != nil {
 		return nil, err
 	}
 
+	if typ.LikePtr() {
+		d = &refCodec{d}
+	}
+
 	ngx.cache.Store(rtyp, d)
 
-	if err := d.Encode(ptr, buf); err != nil {
+	if err := d.Encode(ptr, w); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	res := w.CopyBytes()
+	ReleaseWriter(w)
+	return res, nil
 }
 
 func (ngx *NGX) UnmarshalFromString(data string, itf interface{}) error {

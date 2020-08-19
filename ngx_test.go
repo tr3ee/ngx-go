@@ -1,18 +1,19 @@
 package ngx
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 )
 
-var positiveMarshal = []struct {
+var positiveStruct = []struct {
 	Data     Access
 	Expected string
 }{
 	{Access{RemoteAddr: "$remote_addr", RemoteUser: "$remote_user", TimeLocal: "$time_local", Request: "$request", Status: 200, BodyBytesSent: 0, HTTPReferer: "$http_referer", HTTPUserAgent: "$http_user_agent"}, "$remote_addr - $remote_user [$time_local] \"$request\" 200 0 \"$http_referer\" \"$http_user_agent\""},
 }
 
-var positiveUnmarshal = []struct {
+var positiveMap = []struct {
 	Fmt       string
 	Data      string
 	Expected  map[string]string
@@ -31,30 +32,69 @@ var positiveUnmarshal = []struct {
 	{`escape=json;{"$$$key":"$$$value"}`, `{"$key":"$value"}`, map[string]string{"key": "key", "value": "value"}, `{"$key":"$value"}`},
 }
 
-func TestMarshal(t *testing.T) {
-	for _, tc := range positiveMarshal {
-		got, err := MarshalToString(tc.Data)
+func TestStructCodec(t *testing.T) {
+	for _, tc := range positiveStruct {
+		gotb, err := Marshal(tc.Data)
 		if err != nil {
 			t.Fatalf("failed to marshal data %q: %v", tc.Data, err)
 		}
-		if got != tc.Expected {
-			t.Fatalf("corrupted data in marshal: expecting %q, got %q", tc.Expected, got)
+		if bytes.Compare(gotb, []byte(tc.Expected)) != 0 {
+			t.Fatalf("corrupted data in marshal: expecting %q, got %q", tc.Expected, gotb)
+		}
+
+		access := new(Access)
+		if err := Unmarshal(gotb, &access); err != nil {
+			t.Fatalf("failed to unmarshal %q: %v", gotb, err)
+		}
+		if !reflect.DeepEqual(access, &tc.Data) {
+			t.Fatalf("corrupted data in unmarshal: expecting %q, got %q", tc.Data, access)
+		}
+
+		gots, err := MarshalToString(tc.Data)
+		if err != nil {
+			t.Fatalf("failed to marshal data %q: %v", tc.Data, err)
+		}
+		if gots != tc.Expected {
+			t.Fatalf("corrupted data in marshal: expecting %q, got %q", tc.Expected, gots)
+		}
+
+		access = new(Access)
+		if err := UnmarshalFromString(gots, &access); err != nil {
+			t.Fatalf("failed to unmarshal %q: %v", gots, err)
+		}
+		if !reflect.DeepEqual(access, &tc.Data) {
+			t.Fatalf("corrupted data in unmarshal: expecting %q, got %q", tc.Data, access)
 		}
 	}
 }
 
-func TestUnmarshal(t *testing.T) {
-	for _, tc := range positiveUnmarshal {
+func TestMapCodec(t *testing.T) {
+	for _, tc := range positiveMap {
 		ngx, err := Compile(tc.Fmt)
 		if err != nil {
 			t.Fatalf("failed to compile format %q: %v", tc.Fmt, err)
 		}
 
 		got := make(map[string]string)
+		if err := ngx.Unmarshal([]byte(tc.Data), &got); err != nil {
+			t.Fatalf("failed to unmarshal data %q: %v", tc.Data, err)
+		}
+		if !reflect.DeepEqual(got, tc.Expected) {
+			t.Fatalf("corrupted data in unmarshal: expecting %q, got %q", tc.Expected, got)
+		}
+
+		marshaledBytes, err := ngx.Marshal(got)
+		if err != nil {
+			t.Fatalf("failed to marshal data %q: %v", got, err)
+		}
+		if bytes.Compare(marshaledBytes, []byte(tc.Marshaled)) != 0 {
+			t.Fatalf("corrupted data in marshal: expecting %q, got %q", tc.Marshaled, marshaledBytes)
+		}
+
+		got = make(map[string]string)
 		if err := ngx.UnmarshalFromString(tc.Data, &got); err != nil {
 			t.Fatalf("failed to unmarshal data %q: %v", tc.Data, err)
 		}
-
 		if !reflect.DeepEqual(got, tc.Expected) {
 			t.Fatalf("corrupted data in unmarshal: expecting %q, got %q", tc.Expected, got)
 		}

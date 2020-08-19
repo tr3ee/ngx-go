@@ -126,8 +126,7 @@ func escape(buf []byte) []byte {
 		}
 	}
 
-	esc := make([]byte, w.Len())
-	copy(esc, w.Bytes())
+	esc := w.CopyBytes()
 	ReleaseWriter(w)
 	return esc
 }
@@ -174,8 +173,7 @@ func unescape(buf []byte) ([]byte, error) {
 		i = backslash
 	}
 
-	raw := make([]byte, w.Len())
-	copy(raw, w.Bytes())
+	raw := w.CopyBytes()
 	ReleaseWriter(w)
 	return raw, nil
 }
@@ -223,8 +221,7 @@ func jescape(buf []byte) []byte {
 		}
 	}
 
-	esc := make([]byte, w.Len())
-	copy(esc, w.Bytes())
+	esc := w.CopyBytes()
 	ReleaseWriter(w)
 	return esc
 }
@@ -313,8 +310,7 @@ func junescape(buf []byte) ([]byte, error) {
 		i = backslash
 	}
 
-	raw := make([]byte, w.Len())
-	copy(raw, w.Bytes())
+	raw := w.CopyBytes()
 	ReleaseWriter(w)
 	return raw, nil
 }

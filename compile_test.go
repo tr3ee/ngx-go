@@ -3,6 +3,7 @@ package ngx
 import "testing"
 
 var positiveFormats = []string{
+	CombinedFmt,
 	`$request "$request_body""$header_cookie"`,
 	`$request "$request_body" "$header_cookie"`,
 	`\$request "$request_body" "$header_cookie"`,
