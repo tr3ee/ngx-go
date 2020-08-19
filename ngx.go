@@ -89,7 +89,7 @@ func (ngx *NGX) MarshalToString(itf interface{}) (string, error) {
 	}
 
 	if typ.LikePtr() {
-		d = &RefCodec{d}
+		d = &refCodec{d}
 	}
 
 	ngx.cache.Store(rtyp, d)

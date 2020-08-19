@@ -8,6 +8,11 @@ import (
 	"github.com/modern-go/reflect2"
 )
 
+type mapOp struct {
+	baseOp
+	KeyV unsafe.Pointer
+}
+
 func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
 	keyCodec, err := codecOf(ngx, typ.Key())
 	if err != nil {
@@ -19,8 +24,17 @@ func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
 		return nil, err
 	}
 
-	return &MapCodec{
-		ops:       ngx.ops,
+	ops := make([]mapOp, len(ngx.ops))
+	for i := 0; i < len(ngx.ops); i++ {
+		ops[i].baseOp = ngx.ops[i]
+		ops[i].KeyV = typ.Key().UnsafeNew()
+		if err := keyCodec.Decode(ops[i].KeyV, NewBytesBuffer(ops[i].Extra)); err != nil {
+			return nil, err
+		}
+	}
+
+	return &mapCodec{
+		ops:       ops,
 		esc:       ngx.esc,
 		mapType:   typ,
 		keyType:   typ.Key(),
@@ -30,8 +44,8 @@ func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
 	}, nil
 }
 
-type MapCodec struct {
-	ops []baseOp
+type mapCodec struct {
+	ops []mapOp
 	esc Esc
 
 	mapType   *reflect2.UnsafeMapType
@@ -41,7 +55,7 @@ type MapCodec struct {
 	elemCodec Codec
 }
 
-func (d *MapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *mapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	if *(*unsafe.Pointer)(ptr) == nil {
 		text.WriteString(d.esc.Nil())
 		return nil
@@ -54,12 +68,7 @@ func (d *MapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 			text.Write(op.Extra)
 		case ngxBind, ngxVariable:
 
-			key := d.keyType.UnsafeNew()
-			if err := d.keyCodec.Decode(key, NewBytesBuffer(op.Extra)); err != nil {
-				return err
-			}
-
-			val := d.mapType.UnsafeGetIndex(ptr, key)
+			val := d.mapType.UnsafeGetIndex(ptr, op.KeyV)
 
 			if err := d.elemCodec.Encode(val, text); err != nil {
 				return err
@@ -69,7 +78,7 @@ func (d *MapCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return nil
 }
 
-func (d *MapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *mapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)
@@ -118,11 +127,6 @@ func (d *MapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 				}
 			}
 
-			key := d.keyType.UnsafeNew()
-			if err := d.keyCodec.Decode(key, NewBytesBuffer(op.Extra)); err != nil {
-				return err
-			}
-
 			text := Buffer(NewBytesBuffer(raw))
 			if raw, err := d.esc.Unescape(text); err != nil {
 				return err
@@ -134,7 +138,7 @@ func (d *MapCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 				return err
 			}
 
-			d.mapType.UnsafeSetIndex(ptr, key, elem)
+			d.mapType.UnsafeSetIndex(ptr, op.KeyV, elem)
 
 		default:
 			return fmt.Errorf("Unsupported operator type(%d)", op.Type)

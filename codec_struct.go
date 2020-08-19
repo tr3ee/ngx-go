@@ -41,15 +41,15 @@ func codecOfStruct(ngx *NGX, typ *reflect2.UnsafeStructType) (Codec, error) {
 			ops[ind].Codec = dec
 		}
 	}
-	return &StructCodec{ops, ngx.esc}, nil
+	return &structCodec{ops, ngx.esc}, nil
 }
 
-type StructCodec struct {
+type structCodec struct {
 	ops []structOp
 	esc Esc
 }
 
-func (d *StructCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *structCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	length := len(d.ops)
 	for i := 0; i < length; i++ {
 		op := d.ops[i]
@@ -68,7 +68,7 @@ func (d *StructCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return nil
 }
 
-func (d *StructCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *structCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	p := 0
 	data := text.Bytes()
 	length := len(d.ops)

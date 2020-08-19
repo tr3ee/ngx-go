@@ -15,34 +15,34 @@ import (
 func codecOf(ngx *NGX, typ reflect2.Type) (Codec, error) {
 	switch typ.Kind() {
 	case reflect.Bool:
-		return &BoolCodec{}, nil
+		return &boolCodec{}, nil
 	case reflect.Int:
-		return &IntCodec{}, nil
+		return &intCodec{}, nil
 	case reflect.Uint:
-		return &UintCodec{}, nil
+		return &uintCodec{}, nil
 	case reflect.Int8:
-		return &Int8Codec{}, nil
+		return &int8Codec{}, nil
 	case reflect.Uint8:
-		return &ByteCodec{}, nil
+		return &byteCodec{}, nil
 	case reflect.Int16:
-		return &Int16Codec{}, nil
+		return &int16Codec{}, nil
 	case reflect.Uint16:
-		return &Uint16Codec{}, nil
+		return &uint16Codec{}, nil
 	case reflect.Int32:
-		return &Int32Codec{}, nil
+		return &int32Codec{}, nil
 	case reflect.Uint32:
-		return &Uint32Codec{}, nil
+		return &uint32Codec{}, nil
 	case reflect.Int64:
-		return &Int64Codec{}, nil
+		return &int64Codec{}, nil
 	case reflect.Uint64:
-		return &Uint64Codec{}, nil
+		return &uint64Codec{}, nil
 	case reflect.Slice:
 		if typ.(reflect2.SliceType).Elem().Kind() == reflect.Uint8 {
-			return &BytesCodec{ngx.esc}, nil
+			return &bytesCodec{ngx.esc}, nil
 		}
 		return nil, ErrNotImplemented
 	case reflect.String:
-		return &StringCodec{ngx.esc}, nil
+		return &stringCodec{ngx.esc}, nil
 	case reflect.Map:
 		return codecOfMap(ngx, typ.(*reflect2.UnsafeMapType))
 	case reflect.Struct:
@@ -53,22 +53,22 @@ func codecOf(ngx *NGX, typ reflect2.Type) (Codec, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &PtrCodec{ngx.esc.Nil(), codec, elem}, nil
+		return &ptrCodec{ngx.esc.Nil(), codec, elem}, nil
 	default:
 		return nil, fmt.Errorf("Unsupported decoding type %q", typ.Kind().String())
 	}
 }
 
-type ByteCodec struct {
+type byteCodec struct {
 }
 
-func (d *ByteCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *byteCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*uint8)(ptr)
 	text.WriteString(strconv.FormatUint(uint64(v), 10))
 	return nil
 }
 
-func (d *ByteCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *byteCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	if text.Len() != 1 {
 		return fmt.Errorf("expected byte, got %q", text.String())
 	}
@@ -76,16 +76,16 @@ func (d *ByteCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Int8Codec struct {
+type int8Codec struct {
 }
 
-func (d *Int8Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *int8Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*int8)(ptr)
 	text.WriteString(strconv.FormatInt(int64(v), 10))
 	return nil
 }
 
-func (d *Int8Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *int8Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseInt(text.String(), 10, 8)
 	if err != nil {
 		return fmt.Errorf("expected int8, got %q", text.String())
@@ -97,16 +97,16 @@ func (d *Int8Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Int16Codec struct {
+type int16Codec struct {
 }
 
-func (d *Int16Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *int16Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*int16)(ptr)
 	text.WriteString(strconv.FormatInt(int64(v), 10))
 	return nil
 }
 
-func (d *Int16Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *int16Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseInt(text.String(), 10, 16)
 	if err != nil {
 		return err
@@ -118,16 +118,16 @@ func (d *Int16Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Uint16Codec struct {
+type uint16Codec struct {
 }
 
-func (d *Uint16Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *uint16Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*uint16)(ptr)
 	text.WriteString(strconv.FormatUint(uint64(v), 10))
 	return nil
 }
 
-func (d *Uint16Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *uint16Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseUint(text.String(), 10, 16)
 	if err != nil {
 		return err
@@ -139,16 +139,16 @@ func (d *Uint16Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Int32Codec struct {
+type int32Codec struct {
 }
 
-func (d *Int32Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *int32Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*int32)(ptr)
 	text.WriteString(strconv.FormatInt(int64(v), 10))
 	return nil
 }
 
-func (d *Int32Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *int32Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseInt(text.String(), 10, 32)
 	if err != nil {
 		return err
@@ -160,16 +160,16 @@ func (d *Int32Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Uint32Codec struct {
+type uint32Codec struct {
 }
 
-func (d *Uint32Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *uint32Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*uint32)(ptr)
 	text.WriteString(strconv.FormatUint(uint64(v), 10))
 	return nil
 }
 
-func (d *Uint32Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *uint32Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseUint(text.String(), 10, 32)
 	if err != nil {
 		return err
@@ -181,16 +181,16 @@ func (d *Uint32Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Int64Codec struct {
+type int64Codec struct {
 }
 
-func (d *Int64Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *int64Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*int64)(ptr)
 	text.WriteString(strconv.FormatInt(v, 10))
 	return nil
 }
 
-func (d *Int64Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *int64Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseInt(text.String(), 10, 64)
 	if err != nil {
 		return err
@@ -202,16 +202,16 @@ func (d *Int64Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type Uint64Codec struct {
+type uint64Codec struct {
 }
 
-func (d *Uint64Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *uint64Codec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*uint64)(ptr)
 	text.WriteString(strconv.FormatUint(v, 10))
 	return nil
 }
 
-func (d *Uint64Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *uint64Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseUint(text.String(), 10, 64)
 	if err != nil {
 		return err
@@ -223,16 +223,16 @@ func (d *Uint64Codec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type IntCodec struct {
+type intCodec struct {
 }
 
-func (d *IntCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *intCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*int)(ptr)
 	text.WriteString(strconv.FormatInt(int64(v), 10))
 	return nil
 }
 
-func (d *IntCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *intCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseInt(text.String(), 10, 0)
 	if err != nil {
 		return err
@@ -241,16 +241,16 @@ func (d *IntCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type UintCodec struct {
+type uintCodec struct {
 }
 
-func (d *UintCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *uintCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	v := *(*uint)(ptr)
 	text.WriteString(strconv.FormatUint(uint64(v), 10))
 	return nil
 }
 
-func (d *UintCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *uintCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	v, err := strconv.ParseUint(text.String(), 10, 0)
 	if err != nil {
 		return err
@@ -259,10 +259,10 @@ func (d *UintCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type BoolCodec struct {
+type boolCodec struct {
 }
 
-func (d *BoolCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *boolCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	if *(*bool)(ptr) {
 		text.WriteString("true")
 	} else {
@@ -271,7 +271,7 @@ func (d *BoolCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return nil
 }
 
-func (d *BoolCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *boolCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	if strings.ToLower(text.String()) == "true" {
 		*(*bool)(ptr) = true
 	} else {
@@ -280,13 +280,13 @@ func (d *BoolCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	return nil
 }
 
-type PtrCodec struct {
+type ptrCodec struct {
 	esc   string
 	codec Codec
 	typ   reflect2.Type
 }
 
-func (d *PtrCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *ptrCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	if *((*unsafe.Pointer)(ptr)) == nil {
 		text.WriteString(d.esc)
 		return nil
@@ -294,52 +294,52 @@ func (d *PtrCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return d.codec.Encode(*(*unsafe.Pointer)(ptr), text)
 }
 
-func (d *PtrCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *ptrCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	if *((*unsafe.Pointer)(ptr)) == nil {
 		*((*unsafe.Pointer)(ptr)) = d.typ.UnsafeNew()
 	}
 	return d.codec.Decode(*((*unsafe.Pointer)(ptr)), text)
 }
 
-type RefCodec struct {
+type refCodec struct {
 	codec Codec
 }
 
-func (d *RefCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *refCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	return d.codec.Encode(unsafe.Pointer(&ptr), text)
 }
 
-func (d *RefCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
-	return d.codec.Decode(unsafe.Pointer(&ptr), text)
+func (d *refCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+	return d.codec.Decode(ptr, text)
 }
 
-type BytesCodec struct {
+type bytesCodec struct {
 	esc Esc
 }
 
-func (d *BytesCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *bytesCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	buf := NewBytesBuffer(*(*[]byte)(unsafe.Pointer(&ptr)))
 	_, err := text.Write(d.esc.Escape(buf).Bytes())
 	return err
 }
 
-func (d *BytesCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *bytesCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	b := text.NewBytes()
 	*(*reflect.SliceHeader)(ptr) = *(*reflect.SliceHeader)(unsafe.Pointer(&b))
 	return nil
 }
 
-type StringCodec struct {
+type stringCodec struct {
 	esc Esc
 }
 
-func (d *StringCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
+func (d *stringCodec) Encode(ptr unsafe.Pointer, text *bytes.Buffer) error {
 	buf := NewStringBuffer(*(*string)(ptr))
 	_, err := text.Write(d.esc.Escape(buf).Bytes())
 	return err
 }
 
-func (d *StringCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
+func (d *stringCodec) Decode(ptr unsafe.Pointer, text Buffer) error {
 	*((*string)(ptr)) = text.String()
 	return nil
 }
