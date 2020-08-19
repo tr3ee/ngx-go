@@ -1,6 +1,7 @@
 package ngx
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -59,6 +60,8 @@ func Compile(logfmt string) (*NGX, error) {
 		}
 	}
 
+	last := bytes.NewBuffer(nil)
+
 	for q = p; p < len(logfmt); {
 		if logfmt[p] == '$' {
 			p++
@@ -66,12 +69,28 @@ func Compile(logfmt string) (*NGX, error) {
 			if p >= len(logfmt) {
 				return nil, ErrInvalidLogFormat
 			}
-			if logfmt[p] == '{' {
+			if logfmt[p] == '$' {
+				last.WriteByte('$')
+				p++
+				continue
+			} else if logfmt[p] == '{' {
 				bracket = true
 				p++
 				if p >= len(logfmt) {
 					return nil, ErrInvalidLogFormat
 				}
+			}
+			if last.Len() > 0 {
+				typ := ngxString
+				lastBuf := last.Bytes()
+				if ngx.esc.isEscapeChar(lastBuf[0]) {
+					typ = ngxEscString
+				}
+				ngx.ops = append(ngx.ops, baseOp{
+					Type:  typ,
+					Extra: lastBuf,
+				})
+				last = bytes.NewBuffer(nil)
 			}
 		loop:
 			for q = p; p < len(logfmt); p++ {
@@ -114,27 +133,31 @@ func Compile(logfmt string) (*NGX, error) {
 			}
 			q = p
 		} else {
-			typ := ngxString
 			next := strings.IndexByte(logfmt[q:], '$')
-			if ngx.esc.isEscapeChar(logfmt[q]) {
-				typ = ngxEscString
-			}
 
-			if next < 0 {
-				ngx.ops = append(ngx.ops, baseOp{
-					Type:  typ,
-					Extra: []byte(logfmt[q:]),
-				})
-				break
-			} else {
-				ngx.ops = append(ngx.ops, baseOp{
-					Type:  typ,
-					Extra: []byte(logfmt[q : q+next]),
-				})
+			if next > 0 {
+				last.WriteString(logfmt[q : q+next])
 				q += next
 				p = q
+			} else {
+				last.WriteString(logfmt[q:])
+				break
 			}
+
 		}
 	}
+
+	if last.Len() > 0 {
+		typ := ngxString
+		lastBuf := last.Bytes()
+		if ngx.esc.isEscapeChar(lastBuf[0]) {
+			typ = ngxEscString
+		}
+		ngx.ops = append(ngx.ops, baseOp{
+			Type:  typ,
+			Extra: lastBuf,
+		})
+	}
+
 	return ngx, nil
 }
