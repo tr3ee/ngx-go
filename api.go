@@ -13,14 +13,6 @@ type API interface {
 }
 
 type Codec interface {
-	Encoder
-	Decoder
-}
-
-type Decoder interface {
-	Decode(unsafe.Pointer, Buffer) error
-}
-
-type Encoder interface {
 	Encode(unsafe.Pointer, *bytes.Buffer) error
+	Decode(unsafe.Pointer, Buffer) error
 }
