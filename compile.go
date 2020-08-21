@@ -72,6 +72,7 @@ func Compile(logfmt string) (*NGX, error) {
 			if logfmt[p] == '$' {
 				last.WriteByte('$')
 				p++
+				q = p
 				continue
 			} else if logfmt[p] == '{' {
 				bracket = true

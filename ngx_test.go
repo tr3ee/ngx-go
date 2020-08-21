@@ -30,6 +30,9 @@ var positiveMap = []struct {
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09\ud83c\udf09is\u0020surrogate\u0020pair"}`, map[string]string{"key": "$key", "value": "🌉🌉is surrogate pair"}, `{"$key":"🌉🌉is surrogate pair"}`},
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09\ud83c\udf09\ud83c\udf09\ud83c\udf09\""}`, map[string]string{"key": "$key", "value": "🌉🌉🌉🌉\""}, `{"$key":"🌉🌉🌉🌉\""}`},
 	{`escape=json;{"$$$key":"$$$value"}`, `{"$key":"$value"}`, map[string]string{"key": "key", "value": "value"}, `{"$key":"$value"}`},
+	{`$$key=$key, $$value=$value`, `$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$key=hello, $value=world`},
+	{`$$$$key=$key, $$value=$value`, `$$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$$key=hello, $value=world`},
+	{`$$ $$$$key=$key, $$value=$value`, `$ $$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$ $$key=hello, $value=world`},
 }
 
 func TestStructCodec(t *testing.T) {
