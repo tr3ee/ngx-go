@@ -286,7 +286,7 @@ type ptrCodec struct {
 }
 
 func (d *ptrCodec) Encode(ptr unsafe.Pointer, text Writer) error {
-	if *((*unsafe.Pointer)(ptr)) == nil {
+	if ptr == nil || *((*unsafe.Pointer)(ptr)) == nil {
 		text.WriteString(d.esc)
 		return nil
 	}
@@ -294,7 +294,7 @@ func (d *ptrCodec) Encode(ptr unsafe.Pointer, text Writer) error {
 }
 
 func (d *ptrCodec) Decode(ptr unsafe.Pointer, text Reader) error {
-	if *((*unsafe.Pointer)(ptr)) == nil {
+	if ptr == nil || *((*unsafe.Pointer)(ptr)) == nil {
 		*((*unsafe.Pointer)(ptr)) = d.typ.UnsafeNew()
 	}
 	return d.codec.Decode(*((*unsafe.Pointer)(ptr)), text)
@@ -325,6 +325,9 @@ func (d *bytesCodec) Encode(ptr unsafe.Pointer, text Writer) error {
 }
 
 func (d *bytesCodec) Decode(ptr unsafe.Pointer, text Reader) error {
+	if ptr == nil {
+		return nil
+	}
 	b := text.NewBytes()
 	*(*reflect.SliceHeader)(ptr) = *(*reflect.SliceHeader)(unsafe.Pointer(&b))
 	return nil
@@ -335,12 +338,18 @@ type stringCodec struct {
 }
 
 func (d *stringCodec) Encode(ptr unsafe.Pointer, text Writer) error {
+	if ptr == nil {
+		return nil
+	}
 	buf := NewStringReader(*(*string)(ptr))
 	_, err := text.Write(d.esc.Escape(buf.Bytes()))
 	return err
 }
 
 func (d *stringCodec) Decode(ptr unsafe.Pointer, text Reader) error {
+	if ptr == nil {
+		return nil
+	}
 	*((*string)(ptr)) = text.String()
 	return nil
 }
