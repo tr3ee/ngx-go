@@ -9,6 +9,7 @@ type API interface {
 	MarshalToString(v interface{}) (string, error)
 	Unmarshal(data []byte, v interface{}) error
 	UnmarshalFromString(str string, v interface{}) error
+	Supported() map[string]int
 }
 
 type Codec interface {
