@@ -19,7 +19,7 @@ func codecOfStruct(ngx *NGX, typ *reflect2.UnsafeStructType) (Codec, error) {
 	for i := 0; i < len(ops); i++ {
 		ops[i].baseOp = ngx.ops[i]
 	}
-	// copy(ops, ngx.ops)
+
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		name := field.Name()

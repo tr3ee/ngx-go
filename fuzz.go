@@ -9,8 +9,16 @@ func FuzzCompile(p []byte) int {
 	return 1
 }
 
-func FuzzUnmarshal(p []byte) int {
+func FuzzUnmarshalStruct(p []byte) int {
 	if err := Unmarshal(p, new(Access)); err != nil {
+		return 0
+	}
+	return 1
+}
+
+func FuzzUnmarshalMap(p []byte) int {
+	m := make(map[string]string)
+	if err := Unmarshal(p, &m); err != nil {
 		return 0
 	}
 	return 1

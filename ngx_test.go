@@ -24,6 +24,8 @@ var positiveMap = []struct {
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\request\"request_body\"\"header_cookie\"`, map[string]string{"request": "request", "request_body": "request_body", "header_cookie": "header_cookie"}, `\request\"request_body\"\"header_cookie\"`},
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\requ\\\"est\"request_body\"\"header_cookie\"`, map[string]string{"request": "requ\\\"est", "request_body": "request_body", "header_cookie": "header_cookie"}, `\requ\\\"est\"request_body\"\"header_cookie\"`},
 	{`escape=json;{"$key":"$value"}`, `{"$key":"$value"}`, map[string]string{"key": "$key", "value": "$value"}, `{"$key":"$value"}`},
+	{`escape=json;{"$key":"$_"}`, `{"$key":"$value"}`, map[string]string{"key": "$key"}, `{"$key":""}`},
+	{`escape=json;{"$key":$_"$value"}$_`, `{"$key":    "$value"}`, map[string]string{"key": "$key", "value": "$value"}, `{"$key":"$value"}`},
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065y":"\r\f\t\uf755\n"}`, map[string]string{"key": "$key", "value": "\r\f\t\xef\x9d\x95\n"}, "{\"$key\":\"\\r\\f\\t\uf755\\n\"}"},
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09"}`, map[string]string{"key": "$key", "value": "🌉"}, `{"$key":"🌉"}`},
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"surrogate pair : \ud83c\udf09"}`, map[string]string{"key": "$key", "value": "surrogate pair : 🌉"}, `{"$key":"surrogate pair : 🌉"}`},

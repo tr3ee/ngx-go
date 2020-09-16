@@ -27,6 +27,12 @@ func codecOfMap(ngx *NGX, typ *reflect2.UnsafeMapType) (Codec, error) {
 	ops := make([]mapOp, len(ngx.ops))
 	for i := 0; i < len(ngx.ops); i++ {
 		ops[i].baseOp = ngx.ops[i]
+		if ops[i].Type == ngxVariable {
+			if string(ops[i].Extra) == "_" {
+				continue
+			}
+			ops[i].Type = ngxBind
+		}
 		ops[i].KeyV = typ.Key().UnsafeNew()
 		if err := keyCodec.Decode(ops[i].KeyV, NewBytesReader(ops[i].Extra)); err != nil {
 			return nil, err
@@ -66,10 +72,10 @@ func (d *mapCodec) Encode(ptr unsafe.Pointer, text Writer) error {
 		switch op.Type {
 		case ngxString, ngxEscString:
 			text.Write(op.Extra)
-		case ngxBind, ngxVariable:
-
+		case ngxVariable:
+			// skip
+		case ngxBind:
 			val := d.mapType.UnsafeGetIndex(ptr, op.KeyV)
-
 			if err := d.elemCodec.Encode(val, text); err != nil {
 				return err
 			}
@@ -94,7 +100,34 @@ func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 				return fmt.Errorf("got unexpected string %q, expecting %q", got, op.Extra)
 			}
 			p += len(op.Extra)
-		case ngxBind, ngxVariable:
+		case ngxVariable:
+			if i+1 >= length {
+				return nil
+			}
+			next := d.ops[i+1]
+			switch next.Type {
+			case ngxString:
+				off := bytes.Index(data[p:], next.Extra)
+				if off < 0 {
+					return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+				}
+				i++
+				p += off + len(next.Extra)
+			case ngxEscString:
+			ngx_var_retry:
+				off := bytes.Index(data[p:], next.Extra)
+				if off < 0 {
+					return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
+				} else if off > 0 && data[p+off-1] == '\\' {
+					p += off + len(next.Extra)
+					goto ngx_var_retry
+				}
+				i++
+				p += off + len(next.Extra)
+			default:
+				return fmt.Errorf("ngx-go does not support '$%s$%s' style format", op.Extra, next.Extra)
+			}
+		case ngxBind:
 			var raw []byte
 			if i+1 >= length {
 				raw = data[p:]

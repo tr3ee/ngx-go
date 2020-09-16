@@ -49,6 +49,10 @@ func UnmarshalFromString(str string, v interface{}) error {
 	return ngx.UnmarshalFromString(str, v)
 }
 
+func Supported() map[string]int {
+	return ngx.supported
+}
+
 // see http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format for more details.
 
 type NGX struct {
@@ -208,4 +212,8 @@ func (ngx *NGX) Unmarshal(data []byte, itf interface{}) error {
 	ngx.cache.Store(rtyp, d)
 
 	return d.Decode(ptr, NewBytesReader(data))
+}
+
+func (ngx *NGX) Supported() map[string]int {
+	return ngx.supported
 }
