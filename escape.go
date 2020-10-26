@@ -159,7 +159,7 @@ func unescape(buf []byte) ([]byte, error) {
 		case 'x':
 			if backslash+2 < length {
 				if heximal[buf[backslash+1]] >= 0 && heximal[buf[backslash+2]] >= 0 {
-					w.WriteByte(byte(heximal[buf[backslash+1]]<<4 | heximal[buf[backslash+1]]))
+					w.WriteByte(byte(heximal[buf[backslash+1]]<<4 | heximal[buf[backslash+2]]))
 					backslash += 2
 				} else {
 					return nil, fmt.Errorf("found invalid hex escape format \\x%c%c", buf[backslash+1], buf[backslash+2])
