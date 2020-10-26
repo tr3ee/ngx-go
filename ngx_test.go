@@ -35,6 +35,7 @@ var positiveMap = []struct {
 	{`$$key=$key, $$value=$value`, `$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$key=hello, $value=world`},
 	{`$$$$key=$key, $$value=$value`, `$$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$$key=hello, $value=world`},
 	{`$$ $$$$key=$key, $$value=$value`, `$ $$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$ $$key=hello, $value=world`},
+	{`$$ $$$$key=$key, $$value=$value`, `$ $$key=\x68\x65\x6c\x6c\x6f, $value=\x77\x6f\x72\x6c\x64`, map[string]string{"key": "hello", "value": "world"}, `$ $$key=hello, $value=world`},
 }
 
 func TestStructCodec(t *testing.T) {
