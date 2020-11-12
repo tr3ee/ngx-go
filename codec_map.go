@@ -119,8 +119,15 @@ func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 				if off < 0 {
 					return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
 				} else if off > 0 && data[p+off-1] == '\\' {
-					p += off + len(next.Extra)
-					goto ngx_var_retry
+					if d.esc == EscJson {
+						if _, err := d.esc.Unescape(data[p : p+off]); err != nil {
+							p += off + len(next.Extra)
+							goto ngx_var_retry
+						}
+					} else {
+						p += off + len(next.Extra)
+						goto ngx_var_retry
+					}
 				}
 				i++
 				p += off + len(next.Extra)
@@ -128,7 +135,10 @@ func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 				return fmt.Errorf("ngx-go does not support '$%s$%s' style format", op.Extra, next.Extra)
 			}
 		case ngxBind:
-			var raw []byte
+			var (
+				raw []byte
+				err error
+			)
 			if i+1 >= length {
 				raw = data[p:]
 			} else {
@@ -149,6 +159,13 @@ func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 					if off < 0 {
 						return fmt.Errorf("got unexpected EOF: expecting %q after $%s", next.Extra, op.Extra)
 					} else if off > 0 && data[p+off-1] == '\\' {
+						if d.esc == EscJson {
+							if raw, err = d.esc.Unescape(data[oldp : p+off]); err == nil {
+								i++
+								p += off + len(next.Extra)
+								goto afterUnescape
+							}
+						}
 						p += off + len(next.Extra)
 						goto ngx_bind_retry
 					}
@@ -160,11 +177,12 @@ func (d *mapCodec) Decode(ptr unsafe.Pointer, text Reader) error {
 				}
 			}
 
-			raw, err := d.esc.Unescape(raw)
+			raw, err = d.esc.Unescape(raw)
 			if err != nil {
 				return err
 			}
 
+		afterUnescape:
 			elem := d.elemType.UnsafeNew()
 			if err := d.elemCodec.Decode(elem, NewBytesReader(raw)); err != nil {
 				return err
