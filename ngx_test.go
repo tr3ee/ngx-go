@@ -23,10 +23,11 @@ var positiveMap = []struct {
 	Expected  map[string]string
 	Marshaled string
 }{
-	{CombinedFmt, CombinedFmt, map[string]string{"remote_addr": "$remote_addr", "remote_user": "$remote_user", "time_local": "$time_local", "request": "$request", "status": "$status", "body_bytes_sent": "$body_bytes_sent", "http_referer": "$http_referer", "http_user_agent": "$http_user_agent"}, CombinedFmt},
+	{CombinedFmt, CombinedFmt, map[string]string{"remote_addr": "${remote_addr}", "remote_user": "${remote_user}", "time_local": "$time_local", "request": "${request}", "status": "${status}", "body_bytes_sent": "${body_bytes_sent}", "http_referer": "${http_referer}", "http_user_agent": "${http_user_agent}"}, CombinedFmt},
 	{`\$request\$request_body\$header_cookie\`, `\request\request_body\header_cookie\`, map[string]string{"request": "request", "request_body": "request_body", "header_cookie": "header_cookie"}, `\request\request_body\header_cookie\`},
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\request\"request_body\"\"header_cookie\"`, map[string]string{"request": "request", "request_body": "request_body", "header_cookie": "header_cookie"}, `\request\"request_body\"\"header_cookie\"`},
 	{`\$request\"$request_body\"\"$header_cookie\"`, `\requ\\\"est\"request_body\"\"header_cookie\"`, map[string]string{"request": "requ\\\"est", "request_body": "request_body", "header_cookie": "header_cookie"}, `\requ\\\"est\"request_body\"\"header_cookie\"`},
+	{`\$request\"${request_body}a\"\"$header_cookie\"`, `\requ\\\"est\"request_bodya\"\"header_cookie\"`, map[string]string{"request": "requ\\\"est", "request_body": "request_body", "header_cookie": "header_cookie"}, `\requ\\\"est\"request_bodya\"\"header_cookie\"`},
 	{`escape=json;{"$key":"$value"}`, `{"$key":"$value"}`, map[string]string{"key": "$key", "value": "$value"}, `{"$key":"$value"}`},
 	{`escape=json;{"$key":"$_"}`, `{"$key":"$value"}`, map[string]string{"key": "$key"}, `{"$key":""}`},
 	{`escape=json;{"$key":$_"$value"}$_`, `{"$key":    "$value"}`, map[string]string{"key": "$key", "value": "$value"}, `{"$key":"$value"}`},
@@ -36,12 +37,14 @@ var positiveMap = []struct {
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09\ud83c\udf09is\u0020surrogate\u0020pair"}`, map[string]string{"key": "$key", "value": "🌉🌉is surrogate pair"}, `{"$key":"🌉🌉is surrogate pair"}`},
 	{`escape=json;{"$key":"$value"}`, `{"\u0024k\u0065\u0079":"\ud83c\udf09\ud83c\udf09\ud83c\udf09\ud83c\udf09\""}`, map[string]string{"key": "$key", "value": "🌉🌉🌉🌉\""}, `{"$key":"🌉🌉🌉🌉\""}`},
 	{`escape=json;{"$$$key":"$$$value"}`, `{"$key":"$value"}`, map[string]string{"key": "key", "value": "value"}, `{"$key":"$value"}`},
+	{`escape=json;{"$$${key}":"$$${value}"}`, `{"$key":"$value"}`, map[string]string{"key": "key", "value": "value"}, `{"$key":"$value"}`},
 	{`$$key=$key, $$value=$value`, `$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$key=hello, $value=world`},
 	{`$$$$key=$key, $$value=$value`, `$$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$$key=hello, $value=world`},
 	{`$$ $$$$key=$key, $$value=$value`, `$ $$key=hello, $value=world`, map[string]string{"key": "hello", "value": "world"}, `$ $$key=hello, $value=world`},
 	{`$$ $$$$key=$key, $$value=$value`, `$ $$key=\x68\x65\x6c\x6c\x6f, $value=\x77\x6f\x72\x6c\x64`, map[string]string{"key": "hello", "value": "world"}, `$ $$key=hello, $value=world`},
 	{`escape=json;{"$key":"$value"}`, `{"$key\\":"$value\""}`, map[string]string{"key": "$key\\", "value": "$value\""}, `{"$key\\":"$value\""}`},
 	{`escape=json;{"$key":"$value"}`, `{"$key\\\"":"$value\"\\"}`, map[string]string{"key": "$key\\\"", "value": "$value\"\\"}, `{"$key\\\"":"$value\"\\"}`},
+	{`escape=json;{"${key}":"${value}"}`, `{"$key\\\"":"$value\"\\"}`, map[string]string{"key": "$key\\\"", "value": "$value\"\\"}, `{"$key\\\"":"$value\"\\"}`},
 }
 
 func TestStructCodec(t *testing.T) {
