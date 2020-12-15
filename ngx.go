@@ -15,7 +15,7 @@ var (
 )
 
 var (
-	CombinedFmt = "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\""
+	CombinedFmt = "${remote_addr} - ${remote_user} [$time_local] \"${request}\" ${status} ${body_bytes_sent} \"${http_referer}\" \"${http_user_agent}\""
 	ngx, _      = Compile(CombinedFmt)
 )
 

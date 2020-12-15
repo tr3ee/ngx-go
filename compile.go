@@ -109,23 +109,33 @@ func Compile(logfmt string) (*NGX, error) {
 			if bracket {
 				return nil, fmt.Errorf("the closing bracket of variable %q is missing", logfmt[q:p])
 			}
-			if p-q <= 0 {
+			// if p-q <= 0 {
+			// 	return nil, ErrInvalidLogFormat
+			// }
+			varname := logfmt[q:p]
+			if len(varname) <= 0 || varname == "}" {
 				return nil, ErrInvalidLogFormat
 			}
-			if logfmt[q] == '.' {
-				return nil, fmt.Errorf("variable %q cannot start with '.'", logfmt[q:p])
+			if varname[len(varname)-1] == '}' {
+				varname = varname[:len(varname)-1]
 			}
-			if logfmt[p-1] == '.' {
-				return nil, fmt.Errorf("variable %q cannot end with '.'", logfmt[q:p])
+			varlen := len(varname)
+			if varlen <= 0 {
+				return nil, ErrInvalidLogFormat
 			}
-			if strings.Contains(logfmt[q:p], "..") {
-				return nil, fmt.Errorf("variable %q cannot have consecutive dots", logfmt[q:p])
+			if varname[0] == '.' {
+				return nil, fmt.Errorf("variable %q cannot start with '.'", varname)
+			}
+			if varname[varlen-1] == '.' {
+				return nil, fmt.Errorf("variable %q cannot end with '.'", varname)
+			}
+			if strings.Contains(varname, "..") {
+				return nil, fmt.Errorf("variable %q cannot have consecutive dots", varname)
 			}
 			pos := len(ngx.ops)
 			if pos > 0 && ngx.ops[pos-1].Type == ngxVariable {
 				// skip
 			} else {
-				varname := logfmt[q:p]
 				ngx.supported[varname] = pos
 				ngx.ops = append(ngx.ops, baseOp{
 					Type:  ngxVariable,
