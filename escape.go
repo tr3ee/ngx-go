@@ -41,7 +41,7 @@ func (e Esc) isEscapeChar(ch byte) bool {
 		}
 	case EscJson:
 		switch ch {
-		case '\\', '"', 'n', 'r', 't', 'b', 'f', 'u':
+		case '\\', '"', 'n', 'r', 't', 'b', 'f', 'u', '/':
 			return true
 		default:
 			return false
@@ -249,7 +249,7 @@ func junescape(buf []byte) ([]byte, error) {
 			return nil, errors.New("found EOF while unescaping '\\' format")
 		}
 		switch ch := buf[backslash]; ch {
-		case '\\', '"':
+		case '\\', '"', '/':
 			w.WriteByte(ch)
 		case 'n':
 			w.WriteByte('\n')
