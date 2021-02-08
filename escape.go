@@ -214,7 +214,7 @@ func jescape(buf []byte) []byte {
 				}
 			}
 		} else {
-			if ch == '\\' || ch == '"' {
+			if ch == '\\' || ch == '"' || ch == '/' {
 				w.WriteByte('\\')
 			}
 			w.WriteByte(ch)
